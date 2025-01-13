@@ -1,0 +1,24 @@
+SSKY_USER=YOUR_HANDLE:YOUR_PASSWORD
+SSKY_HANDLE=YOUR_HANDLE
+SSKY_PASSWORD=YOUR_PASSWORD
+
+SSKY_TEST_HANDLE=bsky.app
+SSKY_TEST_DID=did:plc:d7deqn7qrqk63kaspctbv5hn
+SSKY_TEST_URI=at://did:plc:d7deqn7qrqk63kaspctbv5hn/app.bsky.feed.post/3lfm7dgyvik2g
+SSKY_TEST_URI_CID=at://did:plc:d7deqn7qrqk63kaspctbv5hn/app.bsky.feed.post/3lfm7dgyvik2g::bafyreibxss6dwb2xujxacd7salxnociq3n2k2f6iohwomeyd5l345n4kei
+SSKY_TEST_Q=Albert Einstein
+SSKY_TEST_Q_WITH_NO_RESULTS=this_string_is_maybe_not_included_in_any_user_records
+SSKY_TEST_LIMIT=1
+SSKY_TEST_SINCE=20240101
+SSKY_TEST_UNTIL=20241231
+SSKY_TEST_POST_TEXT='This is a #ssky test post for #bluesky @simpleskyclient.bsky.social https://bsky.social/about'
+SSKY_TEST_POST_IMAGE=tests/images/Bluesky_Logo.jpg
+SSKY_TEST_POST_QUOTE_TEXT=Quote.
+SSKY_TEST_POST_REPLY_TEXT=Reply.
+
+SSKY_TEST_INVALID_HANDLE=bsky.$invalid$
+SSKY_TEST_INVALID_DID=did:plc:$invalid$
+SSKY_TEST_INVALID_URI=at://did:plc:$invalid$/app.bsky.feed.invalid
+SSKY_TEST_INVALID_URI_CID=at://did:plc:$invalid$/app.bsky.feed.invalid::$invalid$
+SSKY_TEST_INVALID_SINCE=0000
+SSKY_TEST_INVALID_UNTIL=9999
