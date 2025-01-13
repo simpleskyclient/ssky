@@ -1,0 +1,2 @@
+# ssky
+Simple Bluesky Client
