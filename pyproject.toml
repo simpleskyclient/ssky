@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "ssky"
+version = "0.1.0"
+description = "Simple bluesky client"
+authors = ["SimpleSkyClient Project <simpleskypclient@gmail.com>"]
+readme = "README.md"
+license = "LICENSE"
+keywords = ["bluesky", "client"]
+packages = [{include = "ssky", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.14"
+beautifulsoup4 = "^4.12.3"
+python-dotenv = "^1.0.1"
+requests = "^2.32.3"
+atproto = "^0.0.55"
+pytest = "^8.3.4"
+
+[tool.poetry.scripts]
+ssky = "ssky.main:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
