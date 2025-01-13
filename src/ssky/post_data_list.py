@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import re
 from atproto_client import models
 from ssky.util import join_uri_cid, summarize
 
@@ -77,13 +78,9 @@ class PostDataList:
         def get_filename(self) -> str:
             iso_datetime_str = self.post.record.created_at
             if iso_datetime_str is None:
-                iso_datetime_str = "1970-01-01T00:00:00.000Z"
-            try:
-                datetime_obj = datetime.strptime(iso_datetime_str, "%Y-%m-%dT%H:%M:%S.%fZ")
-            except ValueError:
-                datetime_obj = datetime.strptime(iso_datetime_str, "%Y-%m-%dT%H:%M:%S.%f+00:00")
-            formatted_datetime_str = datetime_obj.strftime("%Y%m%d%H%M%S%fUTC")
-            formatted_datetime_str = formatted_datetime_str[:-6] + formatted_datetime_str[-6:-3] + "000000UTC"
+                iso_datetime_str = "0000-00-00T00:00:00.000Z"
+            datetime_components = re.split(r'T|Z|-|:|\+|\.', iso_datetime_str) 
+            formatted_datetime_str = ''.join(datetime_components[:6])
             filename = f"{self.post.author.handle}.{formatted_datetime_str}.txt"
             return filename
 
