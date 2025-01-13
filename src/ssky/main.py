@@ -53,7 +53,7 @@ def parse():
     profile_parser = sp.add_parser('profile', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Show profile')
     profile_parser.add_argument('name', type=str, help='Handle or DID to show')
 
-    repost_parser = sp.add_parser('repost', formatter_class=SortingHelpFormatter, help='Repost')
+    repost_parser = sp.add_parser('repost', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Repost')
     repost_parser.add_argument('post', type=str, help='URI(at://...)[::CID]')
 
     search_parser = sp.add_parser('search', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Search posts')
@@ -65,7 +65,7 @@ def parse():
     unfollow_parser = sp.add_parser('unfollow', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Unfollow')
     unfollow_parser.add_argument('name', type=str, help='Handle or DID to unfollow')
 
-    unrepost_parser = sp.add_parser('unrepost', formatter_class=SortingHelpFormatter, help='Unrepost a post')
+    unrepost_parser = sp.add_parser('unrepost', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Unrepost a post')
     unrepost_parser.add_argument('post', type=str, help='URI(at://...)[::CID]')
 
     user_parser = sp.add_parser('user', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Search users')
