@@ -28,7 +28,7 @@ class PostDataList:
             return join_uri_cid(self.post.uri, self.post.cid)
 
         def text_only(self) -> str:
-            return summarize(self.post.record.text)
+            return self.post.record.text if self.post.record.text else ''
 
         def short(self, delimiter: str = None) -> str:
             if delimiter is None:
@@ -41,7 +41,7 @@ class PostDataList:
             return delimiter.join([uri_cid, author_did, author_handle, display_name_summary, text_summary])
 
         def long(self) -> str:
-            text_summary = summarize(self.post.record.text)
+            text_summary = self.post.record.text if self.post.record.text else ''
             return '\n'.join(
                 filter(
                     lambda x: x is not None,

@@ -15,7 +15,7 @@ class ProfileList:
             return self.profile.did
 
         def text_only(self) -> str:
-            return summarize(self.profile.description)
+            return self.profile.description if self.profile.description else ''
 
         def short(self, delimiter: str = None) -> str:
             if delimiter is None:
@@ -27,7 +27,7 @@ class ProfileList:
             return delimiter.join([did, handle, display_name_summary, description_summary])
 
         def long(self) -> str:
-            description_summary = summarize(self.profile.description)
+            description_summary = self.profile.description if self.profile.description else ''
             return '\n'.join([
                 f'Created-At: {self.profile.created_at}',
                 f'DID: {self.profile.did}',
