@@ -1,3 +1,4 @@
+import datetime
 import re
 import sys
 from atproto import models
@@ -5,26 +6,26 @@ import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
 
-def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> PostDataList:
-    if since:
-        if re.match(r'^\d{14}$', since):
-            since = f'{since[:4]}-{since[4:6]}-{since[6:8]}T{since[8:10]}:{since[10:12]}:{since[10:12]}Z'
-        elif re.match(r'^\d{8}$', since):
-            since = f'{since[:4]}-{since[4:6]}-{since[6:8]}T00:00:00Z'
+def expand_datetime(dt: str) -> str:
+    if dt:
+        if dt == 'today':
+            ymd = datetime.datetime.now().strftime('%Y%m%d')
+            return f'{ymd[:4]}-{ymd[4:6]}-{ymd[6:8]}T00:00:00Z'
+        elif dt == 'yesterday':
+            ymd = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y%m%d')
+            return f'{ymd[:4]}-{ymd[4:6]}-{ymd[6:8]}T00:00:00Z'
+        elif re.match(r'^\d{14}$', dt):
+            return f'{dt[:4]}-{dt[4:6]}-{dt[6:8]}T{dt[8:10]}:{dt[10:12]}:{dt[10:12]}Z'
+        elif re.match(r'^\d{8}$', dt):
+            return f'{dt[:4]}-{dt[4:6]}-{dt[6:8]}T00:00:00Z'
         else:
-            since = since
+            return dt
     else:
-        since = None
+        return None
 
-    if until:
-        if re.match(r'^\d{14}$', until):
-            until = f'{until[:4]}-{until[4:6]}-{until[6:8]}T{until[8:10]}:{until[10:12]}:{until[10:12]}Z'
-        elif re.match(r'^\d{8}$', until):
-            until = f'{until[:4]}-{until[4:6]}-{until[6:8]}T23:59:59Z'
-        else:
-            until = until
-    else:
-        until = None
+def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> PostDataList:
+    since = expand_datetime(since)
+    until = expand_datetime(until)
 
     try:
         res = ssky_client().app.bsky.feed.search_posts(
