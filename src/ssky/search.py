@@ -5,7 +5,7 @@ import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
 
-def search(q, author=None, since=None, until=None, limit=100, **kwargs) -> PostDataList:
+def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> PostDataList:
     if since:
         if re.match(r'^\d{14}$', since):
             since = f'{since[:4]}-{since[4:6]}-{since[6:8]}T{since[8:10]}:{since[10:12]}:{since[10:12]}Z'

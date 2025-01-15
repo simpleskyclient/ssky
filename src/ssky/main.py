@@ -57,7 +57,7 @@ def parse():
     repost_parser.add_argument('post', type=str, help='URI(at://...)[::CID]')
 
     search_parser = sp.add_parser('search', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Search posts')
-    search_parser.add_argument('q', type=str, metavar='QUERY', help='Query string')
+    search_parser.add_argument('q', nargs='?', type=str, default='*', metavar='QUERY', help='Query string')
     search_parser.add_argument('-a', '--author', type=str, default=None, metavar='ACTOR', help='Author handle or DID')
     search_parser.add_argument('-s', '--since', type=str, default=None, metavar='TIMESTAMP', help='Since timestamp (ex. 2001-01-01T00:00:00Z, 20010101000000, 20010101)')
     search_parser.add_argument('-u', '--until', type=str, default=None, metavar='TIMESTAMP', help='Until timestamp (ex. 2099-12-31T23:59:59Z, 20991231235959, 20991231)')
