@@ -39,7 +39,7 @@ def parse():
     get_parser = sp.add_parser('get', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Get posts')
     get_parser.add_argument('target', nargs='?', type=str, default=None, metavar='PARAM', help='URI(at://...), DID(did:...), handle, or none as timeline')
 
-    login_parser = sp.add_parser('login', formatter_class=SortingHelpFormatter, parents=[delimiter_options], help='Login')
+    login_parser = sp.add_parser('login', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Login')
     login_parser.add_argument('handle', nargs='?', type=str, default=None, help='User handle')
     login_parser.add_argument('password', nargs='?', type=str, default=None, help='User password')
 
