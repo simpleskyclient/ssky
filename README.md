@@ -22,7 +22,7 @@ Ssky is a simple Bluesky client, providing some specific features.
 ### Install from github repository
 
 ```bash
-pip install git+https://github.com/simpleskyclient/ssky.git
+pip install ssky
 ```
 
 ## Quick Start
