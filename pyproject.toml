@@ -5,6 +5,8 @@ description = "Simple bluesky client"
 authors = ["SimpleSkyClient Project <simpleskypclient@gmail.com>"]
 readme = "README.md"
 license = "LICENSE"
+homepage = "https://github.com/simpleskyclient/ssky"
+repository = "https://github.com/simpleskyclient/ssky"
 keywords = ["bluesky", "client"]
 packages = [{include = "ssky", from = "src"}]
 
