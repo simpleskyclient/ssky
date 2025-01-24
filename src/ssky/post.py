@@ -233,13 +233,13 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         )
 
     try:
-        reply_to = None
+        reply_ref = None
         if reply_to:
             post_to_reply_to = get_post(reply_to)
             if post_to_reply_to is None:
                 print('Reply target is missing', file=sys.stderr)
                 return None
-            reply_to = models.app.bsky.feed.post.ReplyRef(
+            reply_ref = models.app.bsky.feed.post.ReplyRef(
                 parent=models.create_strong_ref(post_to_reply_to),
                 root=models.create_strong_ref(post_to_reply_to)
             )
@@ -263,7 +263,7 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
                     thumb = thumb_blob_ref
                 )
             )
-            res = ssky_client().send_post(text=message, facets=facets, embed=embed_external, reply_to=reply_to)
+            res = ssky_client().send_post(text=message, facets=facets, embed=embed_external, reply_to=reply_ref)
         elif quote is not None:
             source = get_post(quote)
             if source is None:
@@ -275,15 +275,15 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
                     cid = source.cid
                 )
             )
-            res = ssky_client().send_post(text=message, facets=facets, embed=embed_record, reply_to=reply_to)
+            res = ssky_client().send_post(text=message, facets=facets, embed=embed_record, reply_to=reply_ref)
         elif image is not None:
             if len(image) > 4:
                 print('Too many image files', file=sys.stderr)
                 return None
             images = load_images(image)
-            res = ssky_client().send_images(text=message, facets=facets, images=images, reply_to=reply_to)
+            res = ssky_client().send_images(text=message, facets=facets, images=images, reply_to=reply_ref)
         else:
-            res = ssky_client().send_post(text=message, facets=facets, reply_to=reply_to)
+            res = ssky_client().send_post(text=message, facets=facets, reply_to=reply_ref)
 
         post = get_post(res.uri)
         while post is None:
