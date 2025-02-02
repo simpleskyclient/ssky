@@ -175,6 +175,16 @@ def get_post(uri_cid):
 
     return posts[0]
 
+def get_root_strong_ref(post):
+    slug = post.uri.split('/')[-1]
+    did = post.author.did
+    cid = post.cid
+    retrieved_post = ssky_client().get_post(slug, profile_identify=did,cid=cid)
+    if retrieved_post.value.reply is None:
+        return models.create_strong_ref(post)
+    else:
+        return retrieved_post.value.reply.root
+
 def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs) -> PostDataList:
     if message:
         message = message
@@ -241,7 +251,7 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
                 return None
             reply_ref = models.app.bsky.feed.post.ReplyRef(
                 parent=models.create_strong_ref(post_to_reply_to),
-                root=models.create_strong_ref(post_to_reply_to)
+                root=get_root_strong_ref(post_to_reply_to)
             )
 
         if card is not None:
