@@ -27,9 +27,22 @@ def get_card(links):
             continue
 
         if res.status_code >= 400:
-            error = ' '.join([str(res.status_code), res.text if res.text is not None else ''])
-            print(f'{error} ', file=sys.stderr)
-            continue
+            if res.status_code == 403:
+                headers_no_user_agent = { 'Cache-Control': 'no-cache' }
+
+                res_no_user_agent = None
+                try:
+                    res_no_user_agent = requests.get(uri, headers=headers_no_user_agent)
+                except Exception as e:
+                    pass
+
+                if res_no_user_agent is not None:
+                    res = res_no_user_agent
+
+            if res.status_code >= 400:
+                error = ' '.join([str(res.status_code), res.text if res.text is not None else ''])
+                print(f'{error} ', file=sys.stderr)
+                continue
 
         if not 'Content-Type' in res.headers:
             print('No Content-Type', file=sys.stderr)
@@ -135,9 +148,22 @@ def get_thumbnail(uri):
         return None
 
     if res.status_code >= 400:
-        error = ' '.join([str(res.status_code), res.text if res.text is not None else ''])
-        print(f'{error} ', file=sys.stderr)
-        return None
+        if res.status_code == 403:
+            headers_no_user_agent = { 'Cache-Control': 'no-cache' }
+
+            res_no_user_agent = None
+            try:
+                res_no_user_agent = requests.get(uri, headers=headers_no_user_agent)
+            except Exception as e:
+                pass
+
+            if res_no_user_agent is not None:
+                res = res_no_user_agent
+
+        if res.status_code >= 400:
+            error = ' '.join([str(res.status_code), res.text if res.text is not None else ''])
+            print(f'{error} ', file=sys.stderr)
+            return None
 
     if not 'Content-Type' in res.headers:
         print('No Content-Type', file=sys.stderr)
