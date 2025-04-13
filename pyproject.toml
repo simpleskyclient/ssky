@@ -15,7 +15,7 @@ python = ">=3.12,<3.14"
 beautifulsoup4 = "^4.12.3"
 python-dotenv = "^1.0.1"
 requests = "^2.32.3"
-atproto = "^0.0.55"
+atproto = "^0.0.60"
 pytest = "^8.3.4"
 
 [tool.poetry.scripts]
