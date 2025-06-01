@@ -3,7 +3,14 @@ import atproto_client
 from ssky.profile_list import ProfileList
 from ssky.ssky_session import SskySession
 
-def login(handle=None, password=None, **kwargs) -> list:
+def login(credentials=None, **kwargs) -> ProfileList:
+    handle = None
+    password = None
+    
+    # Parse credentials if provided
+    if credentials is not None and ':' in credentials:
+        handle, password = credentials.split(':', 1)
+    
     try:
         session = SskySession(handle=handle, password=password)
         session.persist()

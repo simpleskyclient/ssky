@@ -40,8 +40,7 @@ def parse():
     get_parser.add_argument('target', nargs='?', type=str, default=None, metavar='PARAM', help='URI(at://...), DID(did:...), handle, or none as timeline')
 
     login_parser = sp.add_parser('login', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Login')
-    login_parser.add_argument('handle', nargs='?', type=str, default=None, help='User handle')
-    login_parser.add_argument('password', nargs='?', type=str, default=None, help='User password')
+    login_parser.add_argument('credentials', nargs='?', type=str, default=None, help='User credentials (handle:password)')
 
     post_parser = sp.add_parser('post', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Post a message to the timeline')
     post_parser.add_argument('message', nargs='?', type=str, help='The message to post')
