@@ -23,7 +23,7 @@ pip install ssky
 ### Login
 
 ```bash
-ssky login your-handle.bsky.social your-password
+ssky login your-handle.bsky.social:your-password
 ```
 
 Or set credentials via environment variable:
@@ -108,6 +108,32 @@ ssky search "keyword" --author myself
 # Save your timeline to files
 ssky get --output ./timeline
 ```
+
+## 🧪 Testing
+
+To run the tests in the `tests/` directory:
+
+1. Copy the environment configuration file and set your Bluesky credentials:
+   ```bash
+   cp tests/_env tests/.env
+   ```
+   Edit `tests/.env` and add your Bluesky handle and password.
+
+2. Run tests using pytest:
+   ```bash
+   # Run all tests
+   pytest tests/ -v
+   
+   # Run individual feature tests
+   pytest tests/test_login.py -v              # Login functionality
+   pytest tests/test_post_and_delete.py -v    # Post and delete operations
+   pytest tests/test_search.py -v             # Search functionality
+   pytest tests/test_follow_unfollow.py -v    # Follow/unfollow operations
+   pytest tests/test_get.py -v                # Timeline retrieval
+   pytest tests/test_profile.py -v            # Profile display
+   pytest tests/test_repost_unrepost.py -v    # Repost/unrepost operations
+   pytest tests/test_user.py -v               # User functionality
+   ```
 
 ## 📝 Requirements
 
