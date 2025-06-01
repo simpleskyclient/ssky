@@ -2,6 +2,7 @@
 .json
 
 # Local files
+.cursor/
 volumes/
 env/
 log/

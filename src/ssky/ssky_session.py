@@ -31,19 +31,32 @@ class SskySession:
     def login_internal(cls, handle=None, password=None) -> None:
         if SskySession.session is None:
             var_user = os.environ.get('SSKY_USER')
+            
+            # Try environment variable first
             if var_user is not None:
-                handle, password = var_user.split(':')
+                handle, password = var_user.split(':', 1)
                 cls.session = cls.at_login_internal(handle=handle, password=password)
+            # Try provided arguments
             elif handle is not None and password is not None:
                 cls.session = cls.at_login_internal(handle=handle, password=password)
+            # Try session file with fallback to environment variable
             elif os.path.exists(cls.config_path) and os.path.isfile(cls.config_path):
                 with open(cls.config_path, 'r') as f:
                     persistent_config = json.load(f)
                     session_string = persistent_config.get('session_string')
+                try:
                     cls.session = cls.at_login_internal(session_string=session_string)
+                except atproto_client.exceptions.AtProtocolError:
+                    # If session_string login fails, try SSKY_USER as fallback
+                    if var_user is not None:
+                        handle, password = var_user.split(':', 1)
+                        cls.session = cls.at_login_internal(handle=handle, password=password)
+                    else:
+                        cls.session = cls.login_failed
+                        raise atproto_client.exceptions.LoginRequiredError('Session expired and no SSKY_USER found. Please set SSKY_USER or run ssky login handle:password')
             else:
                 cls.session = cls.login_failed
-                raise atproto_client.exceptions.LoginRequiredError('No credentials found. Please set SSKY_USER or run ssky login')
+                raise atproto_client.exceptions.LoginRequiredError('No credentials found. Please set SSKY_USER or run ssky login handle:password')
 
     @classmethod
     def persist_internal(cls) -> None:
