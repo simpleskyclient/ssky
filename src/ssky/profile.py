@@ -9,7 +9,7 @@ def profile(name, **kwargs) -> ProfileList:
         if profile is None:
             print(f'Profile not found', file=sys.stderr)
             return None
-        return ProfileList().append(profile)
+        return ProfileList().append(profile.did)
     except atproto_client.exceptions.AtProtocolError as e:
         if 'response' in dir(e) and e.response is not None:
             print(f'{e.response.status_code} {e.response.content.message}', file=sys.stderr)
