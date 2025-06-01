@@ -32,31 +32,30 @@ class SskySession:
         if SskySession.session is None:
             var_user = os.environ.get('SSKY_USER')
             
-            # Try environment variable first
-            if var_user is not None:
-                handle, password = var_user.split(':', 1)
-                cls.session = cls.at_login_internal(handle=handle, password=password)
-            # Try provided arguments
-            elif handle is not None and password is not None:
-                cls.session = cls.at_login_internal(handle=handle, password=password)
-            # Try session file with fallback to environment variable
-            elif os.path.exists(cls.config_path) and os.path.isfile(cls.config_path):
+            # Try session file first (most efficient)
+            session_login_succeeded = False
+            if os.path.exists(cls.config_path) and os.path.isfile(cls.config_path):
                 with open(cls.config_path, 'r') as f:
                     persistent_config = json.load(f)
                     session_string = persistent_config.get('session_string')
                 try:
                     cls.session = cls.at_login_internal(session_string=session_string)
+                    session_login_succeeded = True
                 except atproto_client.exceptions.AtProtocolError:
-                    # If session_string login fails, try SSKY_USER as fallback
-                    if var_user is not None:
-                        handle, password = var_user.split(':', 1)
-                        cls.session = cls.at_login_internal(handle=handle, password=password)
-                    else:
-                        cls.session = cls.login_failed
-                        raise atproto_client.exceptions.LoginRequiredError('Session expired and no SSKY_USER found. Please set SSKY_USER or run ssky login handle:password')
-            else:
-                cls.session = cls.login_failed
-                raise atproto_client.exceptions.LoginRequiredError('No credentials found. Please set SSKY_USER or run ssky login handle:password')
+                    pass  # Will try fallback credentials
+            
+            # If session login failed or no session file exists, try other credentials
+            if not session_login_succeeded:
+                # Try command line arguments (explicit specification)
+                if handle is not None and password is not None:
+                    cls.session = cls.at_login_internal(handle=handle, password=password)
+                # Try environment variable (fallback)
+                elif var_user is not None:
+                    handle, password = var_user.split(':', 1)
+                    cls.session = cls.at_login_internal(handle=handle, password=password)
+                else:
+                    cls.session = cls.login_failed
+                    raise atproto_client.exceptions.LoginRequiredError('No credentials found. Please set SSKY_USER or run ssky login handle:password')
 
     @classmethod
     def persist_internal(cls) -> None:

@@ -3,7 +3,7 @@ import atproto_client
 from ssky.profile_list import ProfileList
 from ssky.ssky_session import SskySession
 
-def login(credentials=None, **kwargs) -> list:
+def login(credentials=None, **kwargs) -> ProfileList:
     handle = None
     password = None
     
