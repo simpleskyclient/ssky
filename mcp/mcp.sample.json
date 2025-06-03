@@ -1,0 +1,15 @@
+{
+    "mcpServers": {
+        "ssky": {
+            "command": "docker",
+            "args": [
+                "run",
+                "-i",
+                "--rm",
+                "-e",
+                "SSKY_USER",
+                "ssky-mcp:latest"
+            ]
+        }
+    }
+}
