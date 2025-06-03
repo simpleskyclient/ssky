@@ -109,6 +109,45 @@ ssky search "keyword" --author myself
 ssky get --output ./timeline
 ```
 
+## 🤖 IDE Integration
+
+### Cursor Agent MCP Tools
+
+`ssky` provides comprehensive MCP (Model Context Protocol) tools for seamless integration with Cursor Agent, enabling AI-powered Bluesky interactions directly in your development environment.
+
+**Features:**
+- 📋 **10 comprehensive tools**: Complete Bluesky functionality
+- 🤖 **AI-optimized**: Long format defaults for better AI understanding  
+- 🔧 **Full feature support**: Posts with images, quotes, replies, search, social actions
+- ⚡ **Real-time integration**: Direct Bluesky interaction from Cursor
+
+**Quick Setup:**
+```bash
+# Navigate to MCP directory and build Docker image
+cd mcp && ./build.sh && cd ..
+
+# For new MCP setup: copy sample configuration
+mkdir -p .cursor
+cp mcp/mcp.sample.json .cursor/mcp.json
+
+# For existing MCP setup: add ssky server to your .cursor/mcp.json
+# (see sample configuration in mcp/mcp.sample.json)
+# (see mcp/SSKY_MCP_GUIDE.md for detailed integration instructions)
+
+# Set your Bluesky credentials
+export SSKY_USER=your-handle.bsky.social:your-password
+
+# Restart Cursor to load the MCP tools
+```
+
+**Available Tools:**
+- `ssky_get`, `ssky_search`, `ssky_user`, `ssky_profile` - Content retrieval
+- `ssky_post` - Content creation with images/quotes/replies
+- `ssky_follow`, `ssky_unfollow`, `ssky_repost`, `ssky_unrepost` - Social actions
+- `ssky_delete` - Content management
+
+📖 **[Complete MCP Documentation](mcp/SSKY_MCP_GUIDE.md)**
+
 ## 🧪 Testing
 
 To run the tests in the `tests/` directory:
