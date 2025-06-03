@@ -54,17 +54,10 @@ SSKY_USER=your-handle.bsky.social:your-password
 
 ### 3. Configure Cursor
 
-#### Option A: New MCP Configuration (No existing mcp.json)
-If you don't have an existing `.cursor/mcp.json` file, this is the simplest approach:
+#### Option A: Quick Setup (Recommended - No build required)
+If you don't have an existing `.cursor/mcp.json` file, this is the simplest approach using the pre-built Docker image:
 
-1. **Build the Docker image:**
-   ```bash
-   cd mcp
-   ./build.sh
-   cd ..
-   ```
-
-2. **Copy the sample configuration:**
+1. **Copy the sample configuration:**
    ```bash
    # Create .cursor directory if it doesn't exist
    mkdir -p .cursor
@@ -73,28 +66,27 @@ If you don't have an existing `.cursor/mcp.json` file, this is the simplest appr
    cp mcp/mcp.sample.json .cursor/mcp.json
    ```
 
-3. **Restart Cursor** to load the MCP tools
+2. **Restart Cursor** to load the MCP tools
 
-✅ **That's it!** You now have ssky MCP tools available in Cursor.
+✅ **That's it!** Docker will automatically pull the pre-built image (`ghcr.io/simpleskyclient/ssky-mcp:latest`) when first used.
+
+💡 **Note:** The first use may take a moment for Docker to pull the image (~276MB).
+
+**Available Docker Images:**
+- `ghcr.io/simpleskyclient/ssky-mcp:latest` - Latest stable version (auto-built from main branch)
+- `ghcr.io/simpleskyclient/ssky-mcp:v0.1.2` - Specific version (auto-built from tags)
+- **Source**: [GitHub Container Registry](https://github.com/simpleskyclient/ssky-mcp/pkgs/container/ssky-mcp)
+- **CI/CD**: Automatically built via [GitHub Actions](https://github.com/simpleskyclient/ssky/actions)
 
 #### Option B: Add to Existing MCP Configuration
 If you already have `.cursor/mcp.json` with other MCP servers (e.g., GitHub):
 
-1. **Build the Docker image:**
-   ```bash
-   cd mcp
-   ./build.sh
-   cd ..
-   ```
-
-2. **Manually edit your existing `.cursor/mcp.json`:**
-   
-   **⚠️ Important:** Back up your existing configuration first!
+1. **Back up your existing configuration:**
    ```bash
    cp .cursor/mcp.json .cursor/mcp.json.backup
    ```
 
-3. **Add the ssky server to your `.cursor/mcp.json`:**
+2. **Add the ssky server to your `.cursor/mcp.json`:**
    
    Open `.cursor/mcp.json` in your editor and add the `"ssky"` section inside `"mcpServers"`:
    ```json
@@ -111,7 +103,7 @@ If you already have `.cursor/mcp.json` with other MCP servers (e.g., GitHub):
                    "--rm",
                    "-e",
                    "SSKY_USER",
-                   "ssky-mcp:latest"
+                   "ghcr.io/simpleskyclient/ssky-mcp:latest"
                ]
            }
        }
@@ -120,27 +112,39 @@ If you already have `.cursor/mcp.json` with other MCP servers (e.g., GitHub):
    
    💡 **Tip:** You can copy the exact configuration from `mcp/mcp.sample.json`
 
-4. **Restart Cursor** to reload the configuration
+3. **Restart Cursor** to reload the configuration
 
-#### Option C: Manual Setup with Build Script
-For any setup, you can use the build script to ensure everything is ready:
+#### Option C: Local Build (For Developers)
+If you prefer to build the Docker image locally or need to modify the MCP server:
 
-```bash
-# Navigate to the MCP directory and build
-cd mcp
-./build.sh
+1. **Build the Docker image:**
+   ```bash
+   cd mcp
+   ./build.sh
+   cd ..
+   ```
+   
+   The script will:
+   - Check Docker requirements
+   - Build the Docker image (`ssky-mcp:latest`)
+   - Run health checks
+   - Test MCP protocol compatibility
 
-# The script will:
-# 1. Build the Docker image (ssky-mcp:latest)
-# 2. Run health checks
-# 3. Test MCP protocol compatibility
-```
+2. **Update the sample configuration for local image:**
+   ```bash
+   # Create .cursor directory if it doesn't exist
+   mkdir -p .cursor
+   
+   # Copy and modify for local image
+   sed 's|ghcr.io/simpleskyclient/ssky-mcp:latest|ssky-mcp:latest|' mcp/mcp.sample.json > .cursor/mcp.json
+   ```
 
-**Important Notes:**
-- The Docker image name `ssky-mcp:latest` must match what's in your `.cursor/mcp.json`
-- Use `mcp/mcp.sample.json` as a reference for the configuration format
+3. **Restart Cursor** to load the MCP tools
+
+**Notes:**
+- Use this option if you want to customize the MCP server
+- Local builds use the tag `ssky-mcp:latest`
 - Make sure your `SSKY_USER` environment variable is set before testing
-- Restart Cursor after updating `.cursor/mcp.json` to reload the configuration
 
 ## Available Tools
 

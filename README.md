@@ -123,22 +123,22 @@ ssky get --output ./timeline
 
 **Quick Setup:**
 ```bash
-# Navigate to MCP directory and build Docker image
-cd mcp && ./build.sh && cd ..
-
-# For new MCP setup: copy sample configuration
+# For new MCP setup: copy sample configuration (no build required!)
 mkdir -p .cursor
 cp mcp/mcp.sample.json .cursor/mcp.json
-
-# For existing MCP setup: add ssky server to your .cursor/mcp.json
-# (see sample configuration in mcp/mcp.sample.json)
-# (see mcp/SSKY_MCP_GUIDE.md for detailed integration instructions)
 
 # Set your Bluesky credentials
 export SSKY_USER=your-handle.bsky.social:your-password
 
 # Restart Cursor to load the MCP tools
 ```
+
+✨ **Docker will automatically pull the pre-built image on first use!**
+
+**Advanced Setup:**
+- **For existing MCP setup**: Add ssky server to your `.cursor/mcp.json` (see `mcp/mcp.sample.json`)
+- **For local development**: Use `cd mcp && ./build.sh && cd ..` to build locally
+- **Complete guide**: See [MCP Documentation](mcp/SSKY_MCP_GUIDE.md)
 
 **Available Tools:**
 - `ssky_get`, `ssky_search`, `ssky_user`, `ssky_profile` - Content retrieval
