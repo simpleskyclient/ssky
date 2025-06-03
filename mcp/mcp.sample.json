@@ -8,7 +8,7 @@
                 "--rm",
                 "-e",
                 "SSKY_USER",
-                "ssky-mcp:latest"
+                "ghcr.io/simpleskyclient/ssky-mcp:latest"
             ]
         }
     }
