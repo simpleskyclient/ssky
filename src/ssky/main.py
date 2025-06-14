@@ -25,6 +25,7 @@ def parse():
     format_options_group.add_argument('-I', '--id', action='store_const', dest='format', const='id', help='Print identifier only')
     format_options_group.add_argument('-J', '--json', action='store_const', dest='format', const='json', help='Print in JSON format')
     format_options_group.add_argument('-L', '--long', action='store_const', dest='format', const='long', help='Print in long format')
+    format_options_group.add_argument('-S', '--simple-json', action='store_const', dest='format', const='simple_json', help='Print in simplified JSON format for MCP')
     format_options_group.add_argument('-T', '--text', action='store_const', dest='format', const='text', help='Print text only')
 
     limit_options = argparse.ArgumentParser(add_help=False)

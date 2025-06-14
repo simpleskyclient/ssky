@@ -461,4 +461,50 @@ ssky_get(output_dir="./timeline_backup", limit=100)
 data = ssky_search(query="data science", delimiter=",", output_format="text")
 ```
 
-This comprehensive toolset enables rich interaction with Bluesky directly from Cursor, supporting both automated workflows and interactive social media management. 
+This comprehensive toolset enables rich interaction with Bluesky directly from Cursor, supporting both automated workflows and interactive social media management.
+
+## Development and Testing
+
+### Local Development
+
+For development and testing of local changes:
+
+1. **Build from local source**:
+   ```bash
+   cd mcp
+   ./build.sh --local
+   ```
+   This creates `ssky-mcp:local` using `Dockerfile.dev` with your local source code.
+
+2. **Update MCP configuration**:
+   Update `.cursor/mcp.json` to use the local image:
+   ```json
+   {
+     "mcpServers": {
+       "ssky": {
+         "command": "docker",
+         "args": ["run", "-i", "--rm", "-e", "SSKY_USER", "ssky-mcp:local"]
+       }
+     }
+   }
+   ```
+
+3. **Test your changes**:
+   ```bash
+   # Quick functionality test
+   ./test_mcp_quick.sh
+   
+   # Comprehensive test suite
+   ./test_mcp_full.sh
+   ```
+
+### Testing Infrastructure
+
+The MCP server includes comprehensive testing tools:
+
+- **`test_mcp_full.sh`**: Complete MCP protocol test with proper initialization sequence
+- **`test_mcp_quick.sh`**: Quick functionality tests for immediate feedback
+- **Colored output**: Clear status indicators for test results
+- **Stateful testing**: Proper MCP session handling for accurate protocol testing
+
+These testing tools ensure a reliable and developer-friendly MCP server experience. 

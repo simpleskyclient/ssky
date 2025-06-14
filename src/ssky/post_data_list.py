@@ -63,6 +63,26 @@ class PostDataList:
         def json(self) -> str:
             return models.utils.get_model_as_json(self.post)
 
+        def simple_json(self) -> str:
+            import json
+            simplified = {
+                "uri": self.post.uri,
+                "cid": self.post.cid,
+                "author": {
+                    "did": self.post.author.did,
+                    "handle": self.post.author.handle,
+                    "display_name": self.post.author.display_name,
+                    "avatar": self.post.author.avatar
+                },
+                "text": self.post.record.text if self.post.record.text else "",
+                "created_at": self.post.record.created_at,
+                "reply_count": self.post.reply_count if hasattr(self.post, 'reply_count') else 0,
+                "repost_count": self.post.repost_count if hasattr(self.post, 'repost_count') else 0,
+                "like_count": self.post.like_count if hasattr(self.post, 'like_count') else 0,
+                "indexed_at": self.post.indexed_at if hasattr(self.post, 'indexed_at') else None
+            }
+            return json.dumps(simplified, ensure_ascii=False, separators=(',', ':'))
+
         def printable(self, format: str, delimiter: str = None) -> str:
             if format == 'id':
                 return self.id()
@@ -72,6 +92,8 @@ class PostDataList:
                 return self.text_only()
             elif format == 'json':
                 return self.json()
+            elif format == 'simple_json':
+                return self.simple_json()
             else:
                 return self.short(delimiter=delimiter)
 

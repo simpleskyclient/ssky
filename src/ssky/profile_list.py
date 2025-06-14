@@ -40,6 +40,23 @@ class ProfileList:
         def json(self) -> str:
             return models.utils.get_model_as_json(self.profile)
 
+        def simple_json(self) -> str:
+            import json
+            simplified = {
+                "did": self.profile.did,
+                "handle": self.profile.handle,
+                "display_name": self.profile.display_name,
+                "description": self.profile.description if self.profile.description else "",
+                "avatar": self.profile.avatar,
+                "banner": self.profile.banner if hasattr(self.profile, 'banner') else None,
+                "followers_count": self.profile.followers_count if hasattr(self.profile, 'followers_count') else 0,
+                "follows_count": self.profile.follows_count if hasattr(self.profile, 'follows_count') else 0,
+                "posts_count": self.profile.posts_count if hasattr(self.profile, 'posts_count') else 0,
+                "created_at": self.profile.created_at,
+                "indexed_at": self.profile.indexed_at if hasattr(self.profile, 'indexed_at') else None
+            }
+            return json.dumps(simplified, ensure_ascii=False, separators=(',', ':'))
+
         def printable(self, format: str, delimiter: str = None) -> str:
             if format == 'id':
                 return self.id()
@@ -49,6 +66,8 @@ class ProfileList:
                 return self.text_only()
             elif format == 'json':
                 return self.json()
+            elif format == 'simple_json':
+                return self.simple_json()
             else:
                 return self.short(delimiter=delimiter)
 
