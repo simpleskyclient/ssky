@@ -8,11 +8,8 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Install ssky
-RUN pip install --no-cache-dir ssky
-
-# Install MCP dependencies
-RUN pip install --no-cache-dir mcp
+# Install ssky and FastMCP
+RUN pip install --no-cache-dir ssky fastmcp
 
 # Copy MCP server file
 COPY ssky_server.py /app/
@@ -21,7 +18,7 @@ COPY ssky_server.py /app/
 ENV PYTHONUNBUFFERED=1
 
 # Health check script
-RUN echo '#!/bin/bash\npython3 -c "import ssky; print(\"ssky available\")" && python3 -c "import mcp.server.fastmcp; print(\"MCP available\")"' > /app/healthcheck.sh \
+RUN echo '#!/bin/bash\npython3 -c "import ssky; print(\"ssky available\")" && python3 -c "import fastmcp; print(\"FastMCP available\")"' > /app/healthcheck.sh \
     && chmod +x /app/healthcheck.sh
 
 # Health check configuration
