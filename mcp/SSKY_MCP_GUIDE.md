@@ -52,6 +52,44 @@ Create a `.env` file in your project root:
 SSKY_USER=your-handle.bsky.social:your-password
 ```
 
+### 2.1. Configure Image Directory (Optional)
+To enable image posting functionality, the default configuration uses `~/Pictures` directory.
+
+#### Setup
+1. Create the Pictures directory if it doesn't exist:
+```bash
+mkdir -p ~/Pictures
+```
+
+2. Place your images in the `~/Pictures` directory
+
+3. When posting images, use the container path `/app/images/`:
+```python
+# Example: Post with image
+ssky_post(
+    message="Check out this amazing photo!",
+    images="/app/images/photo.jpg"  # Use container path
+)
+```
+
+#### Custom Directory
+If you want to use a different directory, modify the volume mount in your MCP configuration:
+```json
+{
+    "mcpServers": {
+        "ssky": {
+            "command": "docker",
+            "args": [
+                "run", "-i", "--rm",
+                "-v", "/your/custom/path:/app/images",
+                "-e", "SSKY_USER",
+                "ghcr.io/simpleskyclient/ssky-mcp:latest"
+            ]
+        }
+    }
+}
+```
+
 ### 3. Configure Cursor
 
 #### Option A: Quick Setup (Recommended - No build required)
@@ -267,7 +305,10 @@ Post a message to Bluesky.
 ssky_post(message="Hello, Bluesky!")
 
 # Post with images
-ssky_post(message="Check out these photos!", images="/path/to/photo1.jpg,/path/to/photo2.jpg")
+ssky_post(
+    message="New research findings on mobility solutions",
+    images="/app/images/chart.png"
+)
 
 # Reply to a post
 ssky_post(message="Great post!", reply_to_uri="at://did:plc:.../app.bsky.feed.post/...")
@@ -391,7 +432,7 @@ draft = ssky_post(
 # Post with image
 ssky_post(
     message="New research findings on mobility solutions",
-    images="/path/to/chart.png"
+    images="/app/images/chart.png"  # Use container path: /app/images/
 )
 
 # Quote an interesting post with commentary

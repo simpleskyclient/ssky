@@ -6,6 +6,8 @@
                 "run",
                 "-i",
                 "--rm",
+                "-v",
+                "~/Pictures:/app/images",
                 "-e",
                 "SSKY_USER",
                 "ghcr.io/simpleskyclient/ssky-mcp:latest"
