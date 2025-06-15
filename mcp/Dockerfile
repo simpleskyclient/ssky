@@ -8,11 +8,29 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Install ssky and FastMCP
-RUN pip install --no-cache-dir ssky fastmcp
+# Copy the entire project source
+COPY . /app/ssky-source/
 
-# Copy MCP server file
-COPY ssky_server.py /app/
+# Remove local virtual environment and poetry config that forces in-project venv
+RUN rm -rf /app/ssky-source/.venv /app/ssky-source/poetry.toml
+
+# Install Poetry
+RUN pip install --no-cache-dir poetry
+
+# Set working directory to the source
+WORKDIR /app/ssky-source
+
+# Configure Poetry to not create virtual environment (we're in a container)
+RUN poetry config virtualenvs.create false
+
+# Install dependencies and the local ssky package (including the project itself)
+RUN poetry install
+
+# Copy MCP server file to app directory
+COPY mcp/ssky_server.py /app/
+
+# Set working directory back to /app
+WORKDIR /app
 
 # Set environment variables (optional, can be overridden at runtime)
 ENV PYTHONUNBUFFERED=1
@@ -30,6 +48,6 @@ ENTRYPOINT ["python3", "/app/ssky_server.py"]
 
 # Metadata
 LABEL org.opencontainers.image.title="ssky MCP Server"
-LABEL org.opencontainers.image.description="MCP server for ssky Bluesky client"
+LABEL org.opencontainers.image.description="MCP server for ssky Bluesky client built from local source"
 LABEL org.opencontainers.image.version="1.0.0"
 LABEL org.opencontainers.image.authors="SimpleSkyClient Project" 
