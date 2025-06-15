@@ -7,6 +7,7 @@ import json
 import logging
 import subprocess
 import sys
+from importlib.metadata import version, PackageNotFoundError
 from fastmcp import FastMCP
 
 # Set logging level to WARNING and above for stderr output
@@ -26,8 +27,15 @@ logger = logging.getLogger("ssky_mcp_server")
 # Create FastMCP server
 mcp = FastMCP("ssky")
 
-# Set the correct version from pyproject.toml
-mcp._mcp_server.version = "0.1.2"
+# Set the correct version from installed package metadata
+def get_version():
+    try:
+        return version("ssky")
+    except PackageNotFoundError:
+        logger.warning("Could not find ssky package version, using fallback")
+        return "unknown"  # fallback version
+
+mcp._mcp_server.version = get_version()
 
 def format_success_response(data: str) -> str:
     """Format success response for MCP (expects JSON data)"""
