@@ -82,7 +82,7 @@ def ssky_get(
     """Get posts from Bluesky timeline or specific user
     
     Args:
-        param: URI(at://...), DID(did:...), handle, or none for timeline
+        param: URI(at://...), DID(did:...), handle, "myself", or none for timeline
         limit: Number of posts to retrieve (default: 25, same as ssky command)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
@@ -222,9 +222,9 @@ def ssky_search(
     Args:
         query: Search query
         limit: Number of results to return (default: 25, same as ssky command)
-        author: Author handle or DID to filter by
-        since: Since timestamp (ex. 2001-01-01T00:00:00Z)
-        until: Until timestamp (ex. 2099-12-31T23:59:59Z)
+        author: Author handle, DID, or "myself" to filter by
+        since: Since timestamp (ex. 2001-01-01T00:00:00Z, "today", "yesterday")
+        until: Until timestamp (ex. 2099-12-31T23:59:59Z, "today", "yesterday")
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
     """
@@ -280,7 +280,7 @@ def ssky_profile(handle: str, delimiter: str = "", output_dir: str = "") -> str:
     """Show user profile information
     
     Args:
-        handle: User handle (e.g., user.bsky.social)
+        handle: User handle, DID, or "myself" (e.g., user.bsky.social)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
     """
@@ -369,7 +369,7 @@ def ssky_follow(handle: str, delimiter: str = "", output_dir: str = "") -> str:
     """Follow a user on Bluesky
     
     Args:
-        handle: User handle or DID to follow
+        handle: User handle, DID, or "myself" to follow
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
     """
@@ -413,7 +413,7 @@ def ssky_unfollow(handle: str, delimiter: str = "", output_dir: str = "") -> str
     """Unfollow a user on Bluesky
     
     Args:
-        handle: User handle or DID to unfollow
+        handle: User handle, DID, or "myself" to unfollow
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
     """
