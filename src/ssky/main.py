@@ -1,10 +1,18 @@
 import argparse
 from importlib import import_module
+from importlib.metadata import version, PackageNotFoundError
 import io
 from operator import attrgetter
 import os
 import signal
 import sys
+
+def get_version():
+    """Get the version of the ssky package."""
+    try:
+        return version("ssky")
+    except PackageNotFoundError:
+        return "unknown"
 
 def parse():
     class SortingHelpFormatter(argparse.HelpFormatter):
@@ -13,6 +21,7 @@ def parse():
             super(SortingHelpFormatter, self).add_arguments(actions)
 
     parser = argparse.ArgumentParser(formatter_class=SortingHelpFormatter, description='Simple Bluesky Client')
+    parser.add_argument('--version', action='version', version=get_version())
     sp = parser.add_subparsers(dest='subcommand', title='Subcommand', required=True)
 
     delimiter_options = argparse.ArgumentParser(add_help=False)
