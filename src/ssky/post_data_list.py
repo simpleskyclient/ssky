@@ -28,8 +28,40 @@ class PostDataList:
         def id(self) -> str:
             return join_uri_cid(self.post.uri, self.post.cid)
 
+        def _process_urls_from_facets(self, text: str) -> str:
+            """
+            facets情報を使用してテキスト内の切り詰められたURLを完全なURLに復元する
+            URLのみを処理し、メンションやタグは処理しない
+            """
+            if not text or not hasattr(self.post.record, 'facets') or not self.post.record.facets:
+                return text
+            
+            # テキストをバイト配列として処理
+            text_bytes = text.encode('utf-8')
+            
+            # facetsを逆順でソートして後ろから処理（インデックスがずれないように）
+            sorted_facets = sorted(self.post.record.facets, 
+                                  key=lambda f: f.index.byte_start, reverse=True)
+            
+            for facet in sorted_facets:
+                for feature in facet.features:
+                    # URLリンクのみを処理
+                    if hasattr(feature, 'uri'):  # Link facet
+                        start = facet.index.byte_start
+                        end = facet.index.byte_end
+                        
+                        # バイト単位で切り詰められた部分を完全なURLに置換
+                        replacement_bytes = feature.uri.encode('utf-8')
+                        text_bytes = (text_bytes[:start] + 
+                                    replacement_bytes + 
+                                    text_bytes[end:])
+            
+            # バイト配列を文字列に戻す
+            return text_bytes.decode('utf-8')
+
         def text_only(self) -> str:
-            return self.post.record.text if self.post.record.text else ''
+            text = self.post.record.text if self.post.record.text else ''
+            return self._process_urls_from_facets(text)
 
         def short(self, delimiter: str = None) -> str:
             if delimiter is None:
@@ -43,6 +75,7 @@ class PostDataList:
 
         def long(self) -> str:
             text_summary = self.post.record.text if self.post.record.text else ''
+            text_summary = self._process_urls_from_facets(text_summary)
             return '\n'.join(
                 filter(
                     lambda x: x is not None,
@@ -65,6 +98,8 @@ class PostDataList:
 
         def simple_json(self) -> str:
             import json
+            text = self.post.record.text if self.post.record.text else ""
+            processed_text = self._process_urls_from_facets(text)
             simplified = {
                 "uri": self.post.uri,
                 "cid": self.post.cid,
@@ -74,7 +109,7 @@ class PostDataList:
                     "display_name": self.post.author.display_name,
                     "avatar": self.post.author.avatar
                 },
-                "text": self.post.record.text if self.post.record.text else "",
+                "text": processed_text,
                 "created_at": self.post.record.created_at,
                 "reply_count": self.post.reply_count if hasattr(self.post, 'reply_count') else 0,
                 "repost_count": self.post.repost_count if hasattr(self.post, 'repost_count') else 0,
