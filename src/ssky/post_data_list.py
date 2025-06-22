@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 import re
 from atproto_client import models
-from ssky.util import join_uri_cid, summarize
+from ssky.util import join_uri_cid, summarize, create_success_response
 
 class PostDataList:
 
@@ -96,11 +96,11 @@ class PostDataList:
         def json(self) -> str:
             return models.utils.get_model_as_json(self.post)
 
-        def simple_json(self) -> str:
-            import json
+        def get_simple_data(self) -> dict:
+            """Return simplified post data as dict (without wrapping in success response)"""
             text = self.post.record.text if self.post.record.text else ""
             processed_text = self._process_urls_from_facets(text)
-            simplified = {
+            return {
                 "uri": self.post.uri,
                 "cid": self.post.cid,
                 "author": {
@@ -116,7 +116,10 @@ class PostDataList:
                 "like_count": self.post.like_count if hasattr(self.post, 'like_count') else 0,
                 "indexed_at": self.post.indexed_at if hasattr(self.post, 'indexed_at') else None
             }
-            return json.dumps(simplified, ensure_ascii=False, separators=(',', ':'))
+
+        def simple_json(self) -> str:
+            """Return simplified post data wrapped in success response"""
+            return create_success_response(data=self.get_simple_data())
 
         def printable(self, format: str, delimiter: str = None) -> str:
             if format == 'id':
@@ -184,6 +187,7 @@ class PostDataList:
 
     def print(self, format: str, output: str = None, delimiter: str = None) -> None:
         if output:
+            # Output each item to separate files
             for item in self.items:
                 filename = item.get_filename()
                 path = os.path.join(output, filename)
@@ -191,11 +195,17 @@ class PostDataList:
                     f.write(item.printable(format, delimiter=delimiter))
                     f.write('\n')
         else:
-            continued = False
-            for item in self.items:
-                if format == 'long':
-                    if continued:
+            # Console output
+            if format == 'simple_json':
+                # Output all items as a single JSON response
+                posts_data = []
+                for item in self.items:
+                    posts_data.append(item.get_simple_data())
+                print(create_success_response(data=posts_data))
+            else:
+                # Output each item individually
+                for i, item in enumerate(self.items):
+                    # Add separator before second and subsequent items for long format
+                    if format == 'long' and i > 0:
                         print('----------------')
-                    else:
-                        continued = True
-                print(item.printable(format, delimiter=delimiter))
+                    print(item.printable(format, delimiter=delimiter))

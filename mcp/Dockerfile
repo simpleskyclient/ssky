@@ -26,10 +26,7 @@ RUN poetry config virtualenvs.create false
 # Install dependencies and the local ssky package (including the project itself)
 RUN poetry install
 
-# Copy MCP server file to app directory
-COPY mcp/ssky_server.py /app/
-
-# Set working directory back to /app
+# Set working directory back to /app and use the installed package
 WORKDIR /app
 
 # Set environment variables (optional, can be overridden at runtime)
@@ -43,8 +40,8 @@ RUN echo '#!/bin/bash\npython3 -c "import ssky; print(\"ssky available\")" && py
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD /app/healthcheck.sh
 
-# Start MCP server
-ENTRYPOINT ["python3", "/app/ssky_server.py"]
+# Start MCP server using the installed package
+ENTRYPOINT ["python3", "-m", "ssky_mcp.server"]
 
 # Metadata
 LABEL org.opencontainers.image.title="ssky MCP Server"

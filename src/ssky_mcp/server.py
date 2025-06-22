@@ -10,6 +10,9 @@ import sys
 from importlib.metadata import version, PackageNotFoundError
 from fastmcp import FastMCP
 
+# Import ssky utilities (now we can import directly!)
+from ssky.util import create_success_response, create_error_response
+
 # Set logging level to WARNING and above for stderr output
 logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
 
@@ -27,50 +30,36 @@ logger = logging.getLogger("ssky_mcp_server")
 # Create FastMCP server
 mcp = FastMCP("ssky")
 
-# Set the correct version from installed package metadata
-def get_version():
+# Set the MCP server version (same as ssky package)
+def get_mcp_server_version():
+    """Get the MCP server version (uses ssky package version)"""
     try:
         return version("ssky")
     except PackageNotFoundError:
         logger.warning("Could not find ssky package version, using fallback")
-        return "unknown"  # fallback version
+        return "unknown"
 
-mcp._mcp_server.version = get_version()
+mcp._mcp_server.version = get_mcp_server_version()
 
 def format_success_response(data: str) -> str:
     """Format success response for MCP (expects JSON data)"""
+    
     if data:
         # Data should already be JSON from --simple-json, return as-is
         try:
-            json.loads(data)  # Validate it's valid JSON
-            return data
+            parsed_data = json.loads(data)
+            # If it's already in the new format (has status field), return as-is
+            if isinstance(parsed_data, dict) and 'status' in parsed_data:
+                return data
+            # Otherwise, wrap it in the new format
+            return create_success_response(data=parsed_data)
         except json.JSONDecodeError as e:
-            # If not JSON, wrap it (fallback case)
+            # If not JSON, wrap it as string data
             logger.warning(f"format_success_response received non-JSON data, wrapping it: {str(e)[:100]}...")
-            try:
-                return json.dumps({
-                    "error": False,
-                    "message": "Success",
-                    "timestamp": None,
-                    "data": data
-                }, ensure_ascii=False)
-            except Exception as json_error:
-                logger.error(f"format_success_response failed to create JSON wrapper: {str(json_error)}")
-                # Last resort: return a simple JSON string
-                return '{"error": false, "message": "Success", "data": "Response formatting error"}'
+            return create_success_response(data=data)
     else:
         # Empty response case
-        try:
-            return json.dumps({
-                "error": False,
-                "message": "Success",
-                "timestamp": None,
-                "data": None
-            }, ensure_ascii=False)
-        except Exception as json_error:
-            logger.error(f"format_success_response failed to create empty JSON response: {str(json_error)}")
-            # Last resort: return a simple JSON string
-            return '{"error": false, "message": "Success", "data": null}'
+        return create_success_response(data=None)
 
 @mcp.tool()
 def ssky_get(
@@ -120,14 +109,22 @@ def ssky_get(
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_get failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_get command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_get unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()  
 def ssky_post(
@@ -198,14 +195,22 @@ def ssky_post(
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_post failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_post command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_post unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_search(
@@ -266,14 +271,22 @@ def ssky_search(
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_search failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_search command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_search unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_profile(handle: str, delimiter: str = "", output_dir: str = "") -> str:
@@ -310,14 +323,22 @@ def ssky_profile(handle: str, delimiter: str = "", output_dir: str = "") -> str:
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_profile failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_profile command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_profile unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_user(query: str, limit: int = 25, delimiter: str = "", output_dir: str = "") -> str:
@@ -355,14 +376,22 @@ def ssky_user(query: str, limit: int = 25, delimiter: str = "", output_dir: str 
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_user failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_user command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_user unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_follow(handle: str, delimiter: str = "", output_dir: str = "") -> str:
@@ -399,14 +428,22 @@ def ssky_follow(handle: str, delimiter: str = "", output_dir: str = "") -> str:
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_follow failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_follow command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_follow unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_unfollow(handle: str, delimiter: str = "", output_dir: str = "") -> str:
@@ -443,14 +480,22 @@ def ssky_unfollow(handle: str, delimiter: str = "", output_dir: str = "") -> str
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_unfollow failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_unfollow command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_unfollow unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_repost(post_uri: str, delimiter: str = "", output_dir: str = "") -> str:
@@ -487,14 +532,22 @@ def ssky_repost(post_uri: str, delimiter: str = "", output_dir: str = "") -> str
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_repost failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_repost command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_repost unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_unrepost(post_uri: str, delimiter: str = "", output_dir: str = "") -> str:
@@ -531,14 +584,22 @@ def ssky_unrepost(post_uri: str, delimiter: str = "", output_dir: str = "") -> s
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_unrepost failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_unrepost command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_unrepost unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
 @mcp.tool()
 def ssky_delete(post_uri: str) -> str:
@@ -566,17 +627,38 @@ def ssky_delete(post_uri: str) -> str:
         else:
             error_msg = result.stderr.strip()
             logger.error(f"ssky_delete failed with return code {result.returncode}: {error_msg}")
-            raise RuntimeError(error_msg)
+            # Try to parse error as JSON first
+            try:
+                error_json = json.loads(error_msg)
+                if isinstance(error_json, dict) and 'status' in error_json:
+                    # Already in new format
+                    return error_msg
+            except json.JSONDecodeError:
+                pass
+            return create_error_response(message=error_msg, http_code=result.returncode if result.returncode != 0 else 500)
             
     except subprocess.TimeoutExpired:
         logger.error(f"ssky_delete command timed out: {' '.join(args)}")
-        raise RuntimeError("Command timed out")
+        return create_error_response(message="Command timed out", http_code=408)
     except Exception as e:
         logger.error(f"ssky_delete unexpected error: {str(e)}")
-        raise RuntimeError(str(e))
+        return create_error_response(message=str(e), http_code=500)
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the MCP server."""
+    import sys
+    
+    # Handle version request
+    if len(sys.argv) > 1 and sys.argv[1] in ['--version', '-v']:
+        print(f"ssky MCP server version {get_mcp_server_version()}")
+        return
+    
+    logger.info(f"Starting ssky MCP server version {get_mcp_server_version()}")
     try:
         mcp.run()
     except KeyboardInterrupt:
-        pass 
+        logger.info("MCP server stopped by user")
+        pass
+
+if __name__ == "__main__":
+    main() 

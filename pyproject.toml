@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ssky"
-version = "0.1.3"
+version = "0.2.0"
 description = "Simple bluesky client"
 authors = ["SimpleSkyClient Project <simpleskypclient@gmail.com>"]
 readme = "README.md"
@@ -8,7 +8,10 @@ license = "LICENSE"
 homepage = "https://github.com/simpleskyclient/ssky"
 repository = "https://github.com/simpleskyclient/ssky"
 keywords = ["bluesky", "client"]
-packages = [{include = "ssky", from = "src"}]
+packages = [
+    {include = "ssky", from = "src"},
+    {include = "ssky_mcp", from = "src"}
+]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.14"
@@ -21,6 +24,7 @@ fastmcp = "^2.8.0"
 
 [tool.poetry.scripts]
 ssky = "ssky.main:main"
+ssky-mcp-server = "ssky_mcp.server:main"
 
 [build-system]
 requires = ["poetry-core"]

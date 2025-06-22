@@ -1,7 +1,7 @@
 import os
 from atproto_client import models
 from ssky.ssky_session import SskySession
-from ssky.util import summarize
+from ssky.util import summarize, create_success_response
 
 class ProfileList:
 
@@ -40,9 +40,9 @@ class ProfileList:
         def json(self) -> str:
             return models.utils.get_model_as_json(self.profile)
 
-        def simple_json(self) -> str:
-            import json
-            simplified = {
+        def get_simple_data(self) -> dict:
+            """Return simplified profile data as dict (without wrapping in success response)"""
+            return {
                 "did": self.profile.did,
                 "handle": self.profile.handle,
                 "display_name": self.profile.display_name,
@@ -55,7 +55,10 @@ class ProfileList:
                 "created_at": self.profile.created_at,
                 "indexed_at": self.profile.indexed_at if hasattr(self.profile, 'indexed_at') else None
             }
-            return json.dumps(simplified, ensure_ascii=False, separators=(',', ':'))
+
+        def simple_json(self) -> str:
+            """Return simplified profile data wrapped in success response"""
+            return create_success_response(data=self.get_simple_data())
 
         def printable(self, format: str, delimiter: str = None) -> str:
             if format == 'id':
@@ -126,6 +129,7 @@ class ProfileList:
     def print(self, format: str, output: str = None, delimiter: str = None) -> None:
         self.update()
         if output:
+            # Output each item to separate files
             for item in self.items:
                 filename = item.get_filename()
                 path = os.path.join(output, filename)
@@ -133,11 +137,17 @@ class ProfileList:
                     f.write(item.printable(format, delimiter=delimiter))
                     f.write('\n')
         else:
-            continued = False
-            for item in self.items:
-                if format == 'long':
-                    if continued:
+            # Console output
+            if format == 'simple_json':
+                # Output all items as a single JSON response
+                profiles_data = []
+                for item in self.items:
+                    profiles_data.append(item.get_simple_data())
+                print(create_success_response(data=profiles_data))
+            else:
+                # Output each item individually
+                for i, item in enumerate(self.items):
+                    # Add separator before second and subsequent items for long format
+                    if format == 'long' and i > 0:
                         print('----------------')
-                    else:
-                        continued = True
-                print(item.printable(format, delimiter=delimiter))
+                    print(item.printable(format, delimiter=delimiter))
