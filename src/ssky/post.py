@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import requests
 from ssky.ssky_session import ssky_client
 from ssky.post_data_list import PostDataList
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult
 
 def get_card(links):
     title = None
@@ -273,8 +273,12 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         if reply_to:
             post_to_reply_to = get_post(reply_to)
             if post_to_reply_to is None:
-                print('Reply target is missing', file=sys.stderr)
-                return None
+                error_result = ErrorResult("Reply target is missing", 404)
+                if should_use_json_format(**kwargs):
+                    print(error_result.to_json())
+                else:
+                    print(str(error_result), file=sys.stderr)
+                return error_result
             reply_ref = models.app.bsky.feed.post.ReplyRef(
                 parent=models.create_strong_ref(post_to_reply_to),
                 root=get_root_strong_ref(post_to_reply_to)
@@ -287,8 +291,12 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
                 if image is not None:
                     res = ssky_client().upload_blob(image)
                     if res.blob is None:
-                        print('Failed to upload thumbnail', file=sys.stderr)
-                        return None
+                        error_result = ErrorResult("Failed to upload thumbnail", 500)
+                        if should_use_json_format(**kwargs):
+                            print(error_result.to_json())
+                        else:
+                            print(str(error_result), file=sys.stderr)
+                        return error_result
                     thumb_blob_ref = res.blob
 
             embed_external = models.AppBskyEmbedExternal.Main(
@@ -303,8 +311,12 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         elif quote is not None:
             source = get_post(quote)
             if source is None:
-                print('Quote source is missing', file=sys.stderr)
-                return None
+                error_result = ErrorResult("Quote source is missing", 404)
+                if should_use_json_format(**kwargs):
+                    print(error_result.to_json())
+                else:
+                    print(str(error_result), file=sys.stderr)
+                return error_result
             embed_record = models.AppBskyEmbedRecord.Main(
                 record = models.ComAtprotoRepoStrongRef.Main(
                     uri = source.uri,
@@ -314,8 +326,12 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
             res = ssky_client().send_post(text=message, facets=facets, embed=embed_record, reply_to=reply_ref)
         elif image is not None:
             if len(image) > 4:
-                print('Too many image files', file=sys.stderr)
-                return None
+                error_result = ErrorResult("Too many image files", 400)
+                if should_use_json_format(**kwargs):
+                    print(error_result.to_json())
+                else:
+                    print(str(error_result), file=sys.stderr)
+                return error_result
             images = load_images(image)
             res = ssky_client().send_images(text=message, facets=facets, images=images, reply_to=reply_ref)
         else:
@@ -329,22 +345,17 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
 
         return PostDataList().append(post)
     except atproto_client.exceptions.AtProtocolError as e:
-        if should_use_json_format(**kwargs):
-            http_code = get_http_status_from_exception(e)
-            if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-                message = e.response.content.message
-            elif str(e) is not None and len(str(e)) > 0:
-                message = str(e)
-            else:
-                message = e.__class__.__name__
-            error_response = create_error_response(message=message, http_code=http_code)
-            print(error_response)
-            return None
+        http_code = get_http_status_from_exception(e)
+        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
+            message = e.response.content.message
+        elif str(e) is not None and len(str(e)) > 0:
+            message = str(e)
         else:
-            if 'response' in dir(e) and e.response is not None:
-                print(f'{e.response.status_code} {e.response.content.message}', file=sys.stderr)
-            elif str(e) is not None and len(str(e)) > 0:
-                print(f'{str(e)}', file=sys.stderr)
-            else:
-                print(f'{e.__class__.__name__}', file=sys.stderr)
-            return None
+            message = e.__class__.__name__
+        
+        error_result = ErrorResult(message, http_code)
+        if should_use_json_format(**kwargs):
+            print(error_result.to_json())
+        else:
+            print(str(error_result), file=sys.stderr)
+        return error_result

@@ -1,7 +1,29 @@
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
+
+class ErrorResult:
+    """Error result container that holds error information."""
+    
+    def __init__(self, message: str, http_code: int = 500, data: Any = None):
+        self.message = message
+        self.http_code = http_code
+        self.data = data
+        self.timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        self.is_error = True
+    
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return create_error_response(
+            message=self.message,
+            http_code=self.http_code,
+            data=self.data
+        )
+    
+    def __str__(self) -> str:
+        """String representation for stderr output."""
+        return f"{self.http_code} {self.message}"
 
 def summarize(source, length_max=0):
     if source is None:
@@ -42,7 +64,7 @@ def create_json_response(
         JSON string with consistent format
     """
     if timestamp is None:
-        timestamp = datetime.utcnow().isoformat() + 'Z'
+        timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
     
     response = {
         "status": status,
