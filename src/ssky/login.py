@@ -9,13 +9,27 @@ def login(credentials=None, **kwargs) -> ProfileList:
     password = None
     
     # Parse credentials if provided
-    if credentials is not None and ':' in credentials:
-        handle, password = credentials.split(':', 1)
+    if credentials is not None:
+        if not credentials.strip():  # Empty or whitespace-only string
+            return None
+        if ':' in credentials:
+            handle, password = credentials.split(':', 1)
+        else:
+            # Invalid format - no colon separator
+            return None
     
     try:
         session = SskySession(handle=handle, password=password)
         session.persist()
-        return ProfileList().append(session.profile().did)
+        
+        # Check if profile is available
+        profile = session.profile()
+        if profile is None or not hasattr(profile, 'did') or profile.did is None:
+            print("Profile not available after login", file=sys.stderr)
+            return None
+        
+        return ProfileList().append(profile.did)
+        
     except atproto_client.exceptions.AtProtocolError as e:
         if should_use_json_format(**kwargs):
             http_code = get_http_status_from_exception(e)
@@ -36,3 +50,7 @@ def login(credentials=None, **kwargs) -> ProfileList:
             else:
                 print(f'{e.__class__.__name__}', file=sys.stderr)
             return None
+    except Exception as e:
+        # Catch any other unexpected exceptions
+        print(f"Unexpected error during login: {str(e)}", file=sys.stderr)
+        return None
