@@ -2,40 +2,73 @@ import sys
 import atproto_client
 from ssky.profile_list import ProfileList
 from ssky.ssky_session import expand_actor, ssky_client, ssky_profile
-from ssky.util import should_use_json_format, create_error_response, get_http_status_from_exception
+from ssky.util import should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult
 
 def unfollow(name, **kwargs) -> ProfileList:
     try:
-        res = ssky_client().get_follows(ssky_profile().did)
+        client = ssky_client()
+        if client is None:
+            error_result = ErrorResult("No valid session available", 401)
+            if should_use_json_format(**kwargs):
+                print(error_result.to_json())
+            else:
+                print(str(error_result), file=sys.stderr)
+            return error_result
+        profile = ssky_profile()
+        if profile is None:
+            error_result = ErrorResult("Profile not available", 401)
+            if should_use_json_format(**kwargs):
+                print(error_result.to_json())
+            else:
+                print(str(error_result), file=sys.stderr)
+            return error_result
+        res = client.get_follows(profile.did)
         actor = expand_actor(name)
+        if actor is None:
+            error_result = ErrorResult("Invalid actor identifier", 400)
+            if should_use_json_format(**kwargs):
+                print(error_result.to_json())
+            else:
+                print(str(error_result), file=sys.stderr)
+            return error_result
         for follow in res.follows:
             if follow.did == actor or follow.handle == actor:
                 if follow.viewer.following:
-                    status = ssky_client().unfollow(follow.viewer.following)
+                    status = client.unfollow(follow.viewer.following)
                     if status is False:
-                        print('Failed to unfollow', file=sys.stderr)
-                        return None
+                        error_result = ErrorResult("Failed to unfollow", 500)
+                        if should_use_json_format(**kwargs):
+                            print(error_result.to_json())
+                        else:
+                            print(str(error_result), file=sys.stderr)
+                        return error_result
                     else:
                         return ProfileList().append(follow.did)
-        print(f'You are not following {actor}', file=sys.stderr)
-        return None
-    except atproto_client.exceptions.AtProtocolError as e:
+        error_result = ErrorResult(f"You are not following {actor}", 404)
         if should_use_json_format(**kwargs):
-            http_code = get_http_status_from_exception(e)
-            if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-                message = e.response.content.message
-            elif str(e) is not None and len(str(e)) > 0:
-                message = str(e)
-            else:
-                message = e.__class__.__name__
-            error_response = create_error_response(message=message, http_code=http_code)
-            print(error_response)
-            return None
+            print(error_result.to_json())
         else:
-            if 'response' in dir(e) and e.response is not None:
-                print(f'{e.response.status_code} {e.response.content.message}', file=sys.stderr)
-            elif str(e) is not None and len(str(e)) > 0:
-                print(f'{str(e)}', file=sys.stderr)
-            else:
-                print(f'{e.__class__.__name__}', file=sys.stderr)
-            return None
+            print(str(error_result), file=sys.stderr)
+        return error_result
+    except atproto_client.exceptions.LoginRequiredError as e:
+        error_result = ErrorResult(str(e), 401)
+        if should_use_json_format(**kwargs):
+            print(error_result.to_json())
+        else:
+            print(str(error_result), file=sys.stderr)
+        return error_result
+    except atproto_client.exceptions.AtProtocolError as e:
+        http_code = get_http_status_from_exception(e)
+        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
+            message = e.response.content.message
+        elif str(e) is not None and len(str(e)) > 0:
+            message = str(e)
+        else:
+            message = e.__class__.__name__
+        
+        error_result = ErrorResult(message, http_code)
+        if should_use_json_format(**kwargs):
+            print(error_result.to_json())
+        else:
+            print(str(error_result), file=sys.stderr)
+        return error_result

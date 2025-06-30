@@ -218,6 +218,25 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         message = sys.stdin.read()
 
     message = message.strip()
+    
+    # Check client availability early (except for dry run)
+    if not dry:
+        try:
+            client = ssky_client()
+            if client is None:
+                error_result = ErrorResult("No valid session available", 401)
+                if should_use_json_format(**kwargs):
+                    print(error_result.to_json())
+                else:
+                    print(str(error_result), file=sys.stderr)
+                return error_result
+        except atproto_client.exceptions.LoginRequiredError as e:
+            error_result = ErrorResult(str(e), 401)
+            if should_use_json_format(**kwargs):
+                print(error_result.to_json())
+            else:
+                print(str(error_result), file=sys.stderr)
+            return error_result
 
     tags = get_tags(message)
     links = get_links(message)
@@ -344,6 +363,13 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
             post = get_post(res.uri)
 
         return PostDataList().append(post)
+    except atproto_client.exceptions.LoginRequiredError as e:
+        error_result = ErrorResult(str(e), 401)
+        if should_use_json_format(**kwargs):
+            print(error_result.to_json())
+        else:
+            print(str(error_result), file=sys.stderr)
+        return error_result
     except atproto_client.exceptions.AtProtocolError as e:
         http_code = get_http_status_from_exception(e)
         if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):

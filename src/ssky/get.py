@@ -2,7 +2,7 @@ import sys
 import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult
 
 def get_posts(client, uri, cid) -> None:
     res = client.get_posts([uri])
@@ -29,6 +29,13 @@ def get_timeline(client, limit=100) -> None:
 def get(target=None, limit=100, **kwargs) -> PostDataList:
     try:
         client = ssky_client()
+        if client is None:
+            error_result = ErrorResult("No valid session available", 401)
+            if should_use_json_format(**kwargs):
+                print(error_result.to_json())
+            else:
+                print(str(error_result), file=sys.stderr)
+            return error_result
         if target is None:
             post_data_list = get_timeline(client, limit=limit)
         elif target.startswith('at://'):
@@ -45,22 +52,17 @@ def get(target=None, limit=100, **kwargs) -> PostDataList:
             post_data_list = get_author_feed(client, actor, limit=limit)
         return post_data_list
     except atproto_client.exceptions.AtProtocolError as e:
-        if should_use_json_format(**kwargs):
-            http_code = get_http_status_from_exception(e)
-            if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-                message = e.response.content.message
-            elif str(e) is not None and len(str(e)) > 0:
-                message = str(e)
-            else:
-                message = e.__class__.__name__
-            error_response = create_error_response(message=message, http_code=http_code)
-            print(error_response)
-            return None
+        http_code = get_http_status_from_exception(e)
+        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
+            message = e.response.content.message
+        elif str(e) is not None and len(str(e)) > 0:
+            message = str(e)
         else:
-            if 'response' in dir(e) and e.response is not None:
-                print(f'{e.response.status_code} {e.response.content.message}', file=sys.stderr)
-            elif str(e) is not None and len(str(e)) > 0:
-                print(f'{str(e)}', file=sys.stderr)
-            else:
-                print(f'{e.__class__.__name__}', file=sys.stderr)
-            return None
+            message = e.__class__.__name__
+        
+        error_result = ErrorResult(message, http_code)
+        if should_use_json_format(**kwargs):
+            print(error_result.to_json())
+        else:
+            print(str(error_result), file=sys.stderr)
+        return error_result
