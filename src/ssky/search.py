@@ -1,11 +1,11 @@
 import datetime
 import re
-import sys
 from atproto import models
 import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
-from ssky.util import should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult
+from ssky.util import get_http_status_from_exception, ErrorResult
+from typing import Union
 
 def expand_datetime(dt: str) -> str:
     if dt:
@@ -24,19 +24,15 @@ def expand_datetime(dt: str) -> str:
     else:
         return None
 
-def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> PostDataList:
+def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> Union[ErrorResult, PostDataList]:
     since = expand_datetime(since)
     until = expand_datetime(until)
 
     try:
         client = ssky_client()
         if client is None:
-            error_result = ErrorResult("No valid session available", 401)
-            if should_use_json_format(**kwargs):
-                print(error_result.to_json())
-            else:
-                print(str(error_result), file=sys.stderr)
-            return error_result
+            return ErrorResult("No valid session available", 401)
+        
         res = client.app.bsky.feed.search_posts(
             models.AppBskyFeedSearchPosts.Params(
                 author=expand_actor(author),
@@ -52,6 +48,7 @@ def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> P
             for post in res.posts:
                 post_data_list.append(post)
         return post_data_list
+        
     except atproto_client.exceptions.AtProtocolError as e:
         http_code = get_http_status_from_exception(e)
         if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
@@ -61,9 +58,4 @@ def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> P
         else:
             message = e.__class__.__name__
         
-        error_result = ErrorResult(message, http_code)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(message, http_code)

@@ -211,7 +211,7 @@ def get_root_strong_ref(post):
     else:
         return retrieved_post.value.reply.root
 
-def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs) -> PostDataList:
+def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs):
     if message:
         message = message
     else:
@@ -224,19 +224,9 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         try:
             client = ssky_client()
             if client is None:
-                error_result = ErrorResult("No valid session available", 401)
-                if should_use_json_format(**kwargs):
-                    print(error_result.to_json())
-                else:
-                    print(str(error_result), file=sys.stderr)
-                return error_result
+                return ErrorResult("No valid session available", 401)
         except atproto_client.exceptions.LoginRequiredError as e:
-            error_result = ErrorResult(str(e), 401)
-            if should_use_json_format(**kwargs):
-                print(error_result.to_json())
-            else:
-                print(str(error_result), file=sys.stderr)
-            return error_result
+            return ErrorResult(str(e), 401)
 
     tags = get_tags(message)
     links = get_links(message)
@@ -292,12 +282,7 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         if reply_to:
             post_to_reply_to = get_post(reply_to)
             if post_to_reply_to is None:
-                error_result = ErrorResult("Reply target is missing", 404)
-                if should_use_json_format(**kwargs):
-                    print(error_result.to_json())
-                else:
-                    print(str(error_result), file=sys.stderr)
-                return error_result
+                return ErrorResult("Reply target is missing", 404)
             reply_ref = models.app.bsky.feed.post.ReplyRef(
                 parent=models.create_strong_ref(post_to_reply_to),
                 root=get_root_strong_ref(post_to_reply_to)
@@ -310,12 +295,7 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
                 if image is not None:
                     res = ssky_client().upload_blob(image)
                     if res.blob is None:
-                        error_result = ErrorResult("Failed to upload thumbnail", 500)
-                        if should_use_json_format(**kwargs):
-                            print(error_result.to_json())
-                        else:
-                            print(str(error_result), file=sys.stderr)
-                        return error_result
+                        return ErrorResult("Failed to upload thumbnail", 500)
                     thumb_blob_ref = res.blob
 
             embed_external = models.AppBskyEmbedExternal.Main(
@@ -330,12 +310,7 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         elif quote is not None:
             source = get_post(quote)
             if source is None:
-                error_result = ErrorResult("Quote source is missing", 404)
-                if should_use_json_format(**kwargs):
-                    print(error_result.to_json())
-                else:
-                    print(str(error_result), file=sys.stderr)
-                return error_result
+                return ErrorResult("Quote source is missing", 404)
             embed_record = models.AppBskyEmbedRecord.Main(
                 record = models.ComAtprotoRepoStrongRef.Main(
                     uri = source.uri,
@@ -345,12 +320,7 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
             res = ssky_client().send_post(text=message, facets=facets, embed=embed_record, reply_to=reply_ref)
         elif image is not None:
             if len(image) > 4:
-                error_result = ErrorResult("Too many image files", 400)
-                if should_use_json_format(**kwargs):
-                    print(error_result.to_json())
-                else:
-                    print(str(error_result), file=sys.stderr)
-                return error_result
+                return ErrorResult("Too many image files", 400)
             images = load_images(image)
             res = ssky_client().send_images(text=message, facets=facets, images=images, reply_to=reply_ref)
         else:
@@ -364,12 +334,8 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
 
         return PostDataList().append(post)
     except atproto_client.exceptions.LoginRequiredError as e:
-        error_result = ErrorResult(str(e), 401)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(str(e), 401)
+        
     except atproto_client.exceptions.AtProtocolError as e:
         http_code = get_http_status_from_exception(e)
         if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
@@ -379,9 +345,4 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         else:
             message = e.__class__.__name__
         
-        error_result = ErrorResult(message, http_code)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(message, http_code)
