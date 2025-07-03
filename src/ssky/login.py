@@ -1,33 +1,22 @@
-import sys
 from typing import Union
 import atproto_client
 from ssky.profile_list import ProfileList
 from ssky.ssky_session import SskySession
-from ssky.util import should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult
+from ssky.util import get_http_status_from_exception, ErrorResult
 
-def login(credentials=None, **kwargs) -> ProfileList | ErrorResult:
+def login(credentials=None, **kwargs) -> Union[ErrorResult, ProfileList]:
     handle = None
     password = None
     
     # Parse credentials if provided
     if credentials is not None:
         if not credentials.strip():  # Empty or whitespace-only string
-            error_result = ErrorResult("Empty credentials provided", 400)
-            if should_use_json_format(**kwargs):
-                print(error_result.to_json())
-            else:
-                print(str(error_result), file=sys.stderr)
-            return error_result
+            return ErrorResult("Empty credentials provided", 400)
         if ':' in credentials:
             handle, password = credentials.split(':', 1)
         else:
             # Invalid format - no colon separator
-            error_result = ErrorResult("Invalid credential format - expected 'handle:password'", 400)
-            if should_use_json_format(**kwargs):
-                print(error_result.to_json())
-            else:
-                print(str(error_result), file=sys.stderr)
-            return error_result
+            return ErrorResult("Invalid credential format - expected 'handle:password'", 400)
     
     try:
         session = SskySession(handle=handle, password=password)
@@ -36,22 +25,12 @@ def login(credentials=None, **kwargs) -> ProfileList | ErrorResult:
         # Check if profile is available
         profile = session.profile()
         if profile is None or not hasattr(profile, 'did') or profile.did is None:
-            error_result = ErrorResult("Profile not available after login", 500)
-            if should_use_json_format(**kwargs):
-                print(error_result.to_json())
-            else:
-                print(str(error_result), file=sys.stderr)
-            return error_result
+            return ErrorResult("Profile not available after login", 500)
         
         return ProfileList().append(profile.did)
         
     except atproto_client.exceptions.LoginRequiredError as e:
-        error_result = ErrorResult(str(e), 401)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(str(e), 401)
         
     except atproto_client.exceptions.AtProtocolError as e:
         http_code = get_http_status_from_exception(e)
@@ -62,17 +41,8 @@ def login(credentials=None, **kwargs) -> ProfileList | ErrorResult:
         else:
             message = e.__class__.__name__
         
-        error_result = ErrorResult(message, http_code)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(message, http_code)
+        
     except Exception as e:
         # Catch any other unexpected exceptions
-        error_result = ErrorResult(f"Unexpected error during login: {str(e)}", 500)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(f"Unexpected error during login: {str(e)}", 500)
