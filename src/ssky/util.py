@@ -25,6 +25,178 @@ class ErrorResult:
         """String representation for stderr output."""
         return f"{self.http_code} {self.message}"
 
+class DryRunResult:
+    """Dry-run result container that holds preview information with JSON support."""
+    
+    def __init__(self, message: str, tags: list = None, links: list = None, 
+                 mentions: list = None, images: list = None, card: dict = None, 
+                 reply_to: str = None, quote: str = None):
+        self.message = message
+        self.tags = tags or []
+        self.links = links or []
+        self.mentions = mentions or []
+        self.images = images or []
+        self.card = card
+        self.reply_to = reply_to
+        self.quote = quote
+        self.timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        self.is_preview = True
+    
+    def to_json(self) -> str:
+        """Convert to JSON string in ATProto PostView format (partial for dry-run)."""
+        # Build facets structure
+        facets = []
+        
+        # Add tag facets
+        for tag in self.tags:
+            if tag.get('name') and tag.get('byte_start') is not None and tag.get('byte_end') is not None:
+                facets.append({
+                    "features": [{"tag": tag['name'][1:], "$type": "app.bsky.richtext.facet#tag"}],
+                    "index": {
+                        "byteStart": tag['byte_start'],
+                        "byteEnd": tag['byte_end'],
+                        "$type": "app.bsky.richtext.facet#byteSlice"
+                    },
+                    "$type": "app.bsky.richtext.facet"
+                })
+        
+        # Add link facets  
+        for link in self.links:
+            if link.get('uri') and link.get('byte_start') is not None and link.get('byte_end') is not None:
+                facets.append({
+                    "features": [{"uri": link['uri'], "$type": "app.bsky.richtext.facet#link"}],
+                    "index": {
+                        "byteStart": link['byte_start'],
+                        "byteEnd": link['byte_end'],
+                        "$type": "app.bsky.richtext.facet#byteSlice"
+                    },
+                    "$type": "app.bsky.richtext.facet"
+                })
+        
+        # Add mention facets
+        for mention in self.mentions:
+            if mention.get('did') and mention.get('byte_start') is not None and mention.get('byte_end') is not None:
+                facets.append({
+                    "features": [{"did": mention['did'], "$type": "app.bsky.richtext.facet#mention"}],
+                    "index": {
+                        "byteStart": mention['byte_start'],
+                        "byteEnd": mention['byte_end'],
+                        "$type": "app.bsky.richtext.facet#byteSlice"
+                    },
+                    "$type": "app.bsky.richtext.facet"
+                })
+        
+        # Build record structure
+        record = {
+            "$type": "app.bsky.feed.post",
+            "text": self.message,
+            "createdAt": self.timestamp
+        }
+        
+        if facets:
+            record["facets"] = facets
+        
+        # Build embed if card exists
+        embed = None
+        if self.card:
+            embed = {
+                "$type": "app.bsky.embed.external",
+                "external": {
+                    "$type": "app.bsky.embed.external#external",
+                    "uri": self.card["uri"],
+                    "title": self.card["title"],
+                    "description": self.card["description"]
+                }
+            }
+            if self.card.get("thumbnail"):
+                embed["external"]["thumb"] = {"$type": "blob", "ref": {"$link": "preview-thumbnail"}}
+        
+        # Build reply reference if exists
+        reply = None
+        if self.reply_to:
+            reply = {
+                "parent": {"uri": self.reply_to, "cid": "preview-parent-cid"},
+                "root": {"uri": self.reply_to, "cid": "preview-root-cid"},
+                "$type": "app.bsky.feed.post#replyRef"
+            }
+        
+        if reply:
+            record["reply"] = reply
+        
+        # Build partial PostView structure (dry-run preview)
+        post_view = {
+            "$type": "app.bsky.feed.defs#postView",
+            "record": record,
+            "author": {
+                "$type": "app.bsky.actor.defs#profileViewBasic",
+                "did": "preview-author-did",
+                "handle": "preview.bsky.social",
+                "displayName": "Preview Author"
+            }
+        }
+        
+        if embed:
+            post_view["embed"] = embed
+        
+        return json.dumps(post_view, ensure_ascii=False)
+    
+    def to_simple_json(self) -> str:
+        """Convert to simplified JSON format for MCP."""
+        data = {
+            "preview": True,
+            "message": self.message,
+            "tags": [tag.get('name', '') for tag in self.tags],
+            "links": [link.get('uri', '') for link in self.links],
+            "mentions": [{"did": mention.get('did', ''), "handle": mention.get('handle', '')} for mention in self.mentions],
+            "images": list(self.images),
+            "card": self.card,
+            "reply_to": self.reply_to,
+            "quote": self.quote
+        }
+        return create_success_response(data=data, message="Dry run preview")
+    
+    def to_list(self) -> list:
+        """Convert to list format for backward compatibility."""
+        result = []
+        result.append([self.message])
+        for tag in self.tags:
+            result.append(['Tag', tag.get('name', '')])
+        for link in self.links:
+            result.append(['Link', link.get('uri', '')])
+        for mention in self.mentions:
+            result.append(['Mention', mention.get('did', ''), mention.get('handle', '')])
+        for img in self.images:
+            result.append(['Image', img])
+        if self.card is not None:
+            result.append(['Card', self.card["uri"], self.card['title'], self.card['description'], self.card['thumbnail']])
+        if self.reply_to:
+            result.append(['Reply to', self.reply_to])
+        if self.quote:
+            result.append(['Quote', self.quote])
+        return result
+    
+    def print(self, format: str, output: str = None, delimiter: str = ' ') -> None:
+        """Print method compatible with PostDataList/ProfileList interface."""
+        if output:
+            # File output - use text format
+            filename = f"dry-run-{datetime.now().strftime('%Y%m%d%H%M%S')}.txt"
+            import os
+            path = os.path.join(output, filename)
+            with open(path, 'w') as f:
+                for item in self.to_list():
+                    f.write(delimiter.join(filter(lambda s: s is not None, item)))
+                    f.write('\n')
+        else:
+            # Console output
+            if format == 'json':
+                print(self.to_json())
+            elif format == 'simple_json':
+                print(self.to_simple_json())
+            else:
+                # Text format - print each item
+                for item in self.to_list():
+                    print(delimiter.join(filter(lambda s: s is not None, item)))
+
 def summarize(source, length_max=0):
     if source is None:
         return ''

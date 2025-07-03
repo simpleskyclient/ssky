@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import requests
 from ssky.ssky_session import ssky_client
 from ssky.post_data_list import PostDataList
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult, DryRunResult
 
 def get_card(links):
     title = None
@@ -247,21 +247,21 @@ def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs)
         card = get_card(links)
 
     if dry:
-        result = []
-        result.append([message])
-        for key in tags:
-            result.append(['Tag', tags[key]['name']])
-        for key in links:
-            result.append(['Link', links[key]['uri']])
-        for key in mentions:
-            result.append(['Mention', mentions[key]['did'], mentions[key]['handle']])
-        for img in image:
-            result.append(['Image', img])
-        if card is not None:
-            result.append(['Card', card["uri"], card['title'], card['description'], card['thumbnail']])
-        if reply_to:
-            result.append(['Reply to', reply_to])
-        return result
+        # Create DryRunResult with extracted data
+        tags_list = [tags[key] for key in tags]
+        links_list = [links[key] for key in links]
+        mentions_list = [mentions[key] for key in mentions]
+        
+        return DryRunResult(
+            message=message,
+            tags=tags_list,
+            links=links_list,
+            mentions=mentions_list,
+            images=image,
+            card=card,
+            reply_to=reply_to,
+            quote=quote
+        )
 
     facets = []
     for key in tags:

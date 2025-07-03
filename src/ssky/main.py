@@ -97,11 +97,14 @@ def execute(subcommand, args) -> bool:
         else:
             from ssky.post_data_list import PostDataList
             from ssky.profile_list import ProfileList
-            from ssky.util import ErrorResult
+            from ssky.util import ErrorResult, DryRunResult
             
             if isinstance(result, ErrorResult):
                 # Error result - return failure status, output already printed by function
                 return False
+            elif isinstance(result, DryRunResult):
+                # Dry-run result - use its print method for JSON/text output
+                result.print(format=args.format, output=args.output, delimiter=args.delimiter)
             elif type(result) is PostDataList or type(result) is ProfileList:
                 result.print(format=args.format, output=args.output, delimiter=args.delimiter)
             elif type(result) is list:
