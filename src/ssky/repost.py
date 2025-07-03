@@ -1,10 +1,10 @@
-import sys
 import atproto_client
 from ssky.post_data_list import PostDataList
 from ssky.ssky_session import ssky_client
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, join_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid, get_http_status_from_exception, ErrorResult
+from typing import Union
 
-def repost(post, **kwargs) -> PostDataList | ErrorResult:
+def repost(post, **kwargs) -> Union[ErrorResult, PostDataList]:
     if is_joined_uri_cid(post):
         source_uri, source_cid = disjoin_uri_cid(post)
     else:
@@ -14,12 +14,7 @@ def repost(post, **kwargs) -> PostDataList | ErrorResult:
     try:
         client = ssky_client()
         if client is None:
-            error_result = ErrorResult("No valid session available", 401)
-            if should_use_json_format(**kwargs):
-                print(error_result.to_json())
-            else:
-                print(str(error_result), file=sys.stderr)
-            return error_result
+            return ErrorResult("No valid session available", 401)
         
         post_data_list = PostDataList()
         sources = client.get_posts([source_uri])
@@ -31,13 +26,10 @@ def repost(post, **kwargs) -> PostDataList | ErrorResult:
 
         client.repost(source_uri, source_cid)
         return post_data_list
+        
     except atproto_client.exceptions.LoginRequiredError as e:
-        error_result = ErrorResult(str(e), 401)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(str(e), 401)
+        
     except atproto_client.exceptions.AtProtocolError as e:
         http_code = get_http_status_from_exception(e)
         if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
@@ -47,9 +39,4 @@ def repost(post, **kwargs) -> PostDataList | ErrorResult:
         else:
             message = e.__class__.__name__
         
-        error_result = ErrorResult(message, http_code)
-        if should_use_json_format(**kwargs):
-            print(error_result.to_json())
-        else:
-            print(str(error_result), file=sys.stderr)
-        return error_result
+        return ErrorResult(message, http_code)
