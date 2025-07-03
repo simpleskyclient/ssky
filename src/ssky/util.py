@@ -25,6 +25,26 @@ class ErrorResult:
         """String representation for stderr output."""
         return f"{self.http_code} {self.message}"
 
+class SuccessResult:
+    """Success result container that holds success information."""
+    
+    def __init__(self, data: Any = None, message: str = "Success"):
+        self.data = data
+        self.message = message
+        self.timestamp = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+        self.is_error = False
+    
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return create_success_response(
+            data=self.data,
+            message=self.message
+        )
+    
+    def __str__(self) -> str:
+        """String representation for stdout output."""
+        return self.message if isinstance(self.message, str) else str(self.data)
+
 class DryRunResult:
     """Dry-run result container that holds preview information with JSON support."""
     

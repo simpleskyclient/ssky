@@ -97,11 +97,21 @@ def execute(subcommand, args) -> bool:
         else:
             from ssky.post_data_list import PostDataList
             from ssky.profile_list import ProfileList
-            from ssky.util import ErrorResult, DryRunResult
+            from ssky.util import ErrorResult, SuccessResult, DryRunResult
             
             if isinstance(result, ErrorResult):
-                # Error result - return failure status, output already printed by function
+                # Error result - centralized error output handling
+                if args.format in ('json', 'simple_json'):
+                    print(result.to_json())
+                else:
+                    print(str(result), file=sys.stderr)
                 return False
+            elif isinstance(result, SuccessResult):
+                # Success result - centralized success output handling
+                if args.format in ('json', 'simple_json'):
+                    print(result.to_json())
+                else:
+                    print(str(result))
             elif isinstance(result, DryRunResult):
                 # Dry-run result - use its print method for JSON/text output
                 result.print(format=args.format, output=args.output, delimiter=args.delimiter)
