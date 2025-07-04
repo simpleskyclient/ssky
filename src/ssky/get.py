@@ -30,29 +30,29 @@ def get_timeline(client, limit=100) -> None:
         post_data_list.append(feed_post.post)
     return post_data_list
 
-def get(param=None, limit=25, **kwargs) -> PostDataList:
+def get(target=None, limit=100, **kwargs) -> PostDataList:
     try:
         current_session = ssky_client()
         if current_session is None:
             raise SessionError()
         
-        if param is None:
+        if target is None:
             # Get timeline
             return get_timeline(current_session, limit=limit)
-        elif param.startswith('at://'):
+        elif target.startswith('at://'):
             # AT URI - single post or post with CID
-            if is_joined_uri_cid(param):
-                uri, cid = disjoin_uri_cid(param)
+            if is_joined_uri_cid(target):
+                uri, cid = disjoin_uri_cid(target)
             else:
-                uri = param
+                uri = target
                 cid = None
             return get_posts(current_session, uri, cid)
-        elif param.startswith('did:'):
+        elif target.startswith('did:'):
             # DID - get author feed
-            return get_author_feed(current_session, param, limit=limit)
+            return get_author_feed(current_session, target, limit=limit)
         else:
             # Handle or other identifier - expand and get author feed
-            actor = expand_actor(param)
+            actor = expand_actor(target)
             if not actor:
                 raise InvalidActorError()
             return get_author_feed(current_session, actor, limit=limit)

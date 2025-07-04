@@ -43,10 +43,10 @@ def parse():
     limit_options.add_argument('-N', '--limit', type=int, metavar='NUM', help='Limit lines')
 
     delete_parser = sp.add_parser('delete', formatter_class=SortingHelpFormatter, help='Delete post')
-    delete_parser.add_argument('post', type=str, help='URI(at://...)[::CID]')
+    delete_parser.add_argument('target', type=str, metavar='POST', help='URI(at://...)[::CID]')
 
     follow_parser = sp.add_parser('follow', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Follow')
-    follow_parser.add_argument('name', type=str, help='Handle, DID, or "myself" to follow')
+    follow_parser.add_argument('actor', type=str, metavar='NAME', help='Handle, DID, or "myself" to follow')
 
     get_parser = sp.add_parser('get', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Get posts')
     get_parser.add_argument('target', nargs='?', type=str, default=None, metavar='PARAM', help='URI(at://...), DID(did:...), handle, "myself", or none as timeline')
@@ -62,10 +62,10 @@ def parse():
     post_parser.add_argument('-r', '--reply-to', type=str, default=None, metavar='URI', help='Reply to a post')
 
     profile_parser = sp.add_parser('profile', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Show profile')
-    profile_parser.add_argument('name', type=str, help='Handle, DID, or "myself" to show')
+    profile_parser.add_argument('actor', type=str, metavar='NAME', help='Handle, DID, or "myself" to show')
 
     repost_parser = sp.add_parser('repost', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Repost')
-    repost_parser.add_argument('post', type=str, help='URI(at://...)[::CID]')
+    repost_parser.add_argument('target', type=str, metavar='POST', help='URI(at://...)[::CID]')
 
     search_parser = sp.add_parser('search', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Search posts')
     search_parser.add_argument('q', nargs='?', type=str, default='*', metavar='QUERY', help='Query string')
@@ -74,13 +74,13 @@ def parse():
     search_parser.add_argument('-u', '--until', type=str, default=None, metavar='TIMESTAMP', help='Until timestamp (ex. 2099-12-31T23:59:59Z, 20991231235959, 20991231, "today", "yesterday")')
 
     unfollow_parser = sp.add_parser('unfollow', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Unfollow')
-    unfollow_parser.add_argument('name', type=str, help='Handle, DID, or "myself" to unfollow')
+    unfollow_parser.add_argument('actor', type=str, metavar='NAME', help='Handle, DID, or "myself" to unfollow')
 
     unrepost_parser = sp.add_parser('unrepost', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Unrepost a post')
-    unrepost_parser.add_argument('post', type=str, help='URI(at://...)[::CID]')
+    unrepost_parser.add_argument('target', type=str, metavar='POST', help='URI(at://...)[::CID]')
 
     user_parser = sp.add_parser('user', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Search users')
-    user_parser.add_argument('q', type=str, metavar='QUERY', help='Query string')
+    user_parser.add_argument('query', type=str, metavar='QUERY', help='Query string')
 
     args = parser.parse_args()
     subcommand = args.subcommand

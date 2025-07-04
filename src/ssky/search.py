@@ -26,44 +26,29 @@ def expand_datetime(dt: str) -> str:
     else:
         return None
 
-def search(query=None, author=None, since=None, until=None, limit=25, **kwargs) -> PostDataList:
+def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> PostDataList:
+    since = expand_datetime(since)
+    until = expand_datetime(until)
+
     try:
         current_session = ssky_client()
         if current_session is None:
             raise SessionError()
         
-        if author is not None:
-            author = expand_actor(author)
-        
-        # Build search query
-        search_query = query if query else ""
-        if author:
-            search_query += f" from:{author}"
-        if since:
-            if isinstance(since, str):
-                if since.lower() == "today":
-                    since = datetime.now().strftime("%Y-%m-%d")
-                elif since.lower() == "yesterday":
-                    since = (datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-            search_query += f" since:{since}"
-        if until:
-            if isinstance(until, str):
-                if until.lower() == "today":
-                    until = datetime.now().strftime("%Y-%m-%d")
-                elif until.lower() == "yesterday":
-                    until = (datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-            search_query += f" until:{until}"
-        
-        response = current_session.app.bsky.feed.search_posts(params={
-            'q': search_query.strip(),
-            'limit': limit
-        })
-        
-        result = PostDataList()
-        if response.posts:
-            for post in response.posts:
-                result.append(post)
-        
-        return result
+        res = current_session.app.bsky.feed.search_posts(
+            models.AppBskyFeedSearchPosts.Params(
+                author=expand_actor(author),
+                limit=limit,
+                q=q,
+                since=since,
+                until=until
+            )
+        )
+
+        post_data_list = PostDataList()
+        if res.posts and len(res.posts) > 0:
+            for post in res.posts:
+                post_data_list.append(post)
+        return post_data_list
     except atproto_client.exceptions.AtProtocolError as e:
         raise AtProtocolSskyError(e) from e
