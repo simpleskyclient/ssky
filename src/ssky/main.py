@@ -2,6 +2,7 @@ import argparse
 from importlib import import_module
 from importlib.metadata import version, PackageNotFoundError
 import io
+import logging
 from operator import attrgetter
 import os
 import signal
@@ -128,6 +129,13 @@ def setup():
     sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=False)
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', line_buffering=False)
+    
+    # Configure logging to output to stderr
+    logging.basicConfig(
+        level=logging.WARNING,  # Only show warnings and errors by default
+        format='%(levelname)s: %(message)s',
+        stream=sys.stderr
+    )
 
 def main() -> int:
     setup()

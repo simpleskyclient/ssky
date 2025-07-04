@@ -1,4 +1,5 @@
 import os
+import sys
 from atproto_client import models
 from ssky.ssky_session import SskySession
 from ssky.util import summarize, create_success_response
@@ -91,6 +92,7 @@ class ProfileList:
     def __init__(self, default_delimiter: str = None) -> None:
         self.actors = []
         self.items = None
+        self.warnings = []  # Add warnings list
         if default_delimiter is not None:
             self.default_delimiter = default_delimiter
 
@@ -143,7 +145,10 @@ class ProfileList:
                 profiles_data = []
                 for item in self.items:
                     profiles_data.append(item.get_simple_data())
-                print(create_success_response(data=profiles_data))
+                
+                # Include warnings in message for simple_json format
+                message = self.get_message()
+                print(create_success_response(data=profiles_data, message=message))
             else:
                 # Output each item individually
                 for i, item in enumerate(self.items):
@@ -151,3 +156,28 @@ class ProfileList:
                     if format == 'long' and i > 0:
                         print('----------------')
                     print(item.printable(format, delimiter=delimiter))
+
+    def add_warning(self, warning: str) -> None:
+        """Add a warning message to the list."""
+        self.warnings.append(warning)
+        print(f"Warning: {warning}", file=sys.stderr)
+
+    def get_message(self) -> str:
+        """Get message including warnings if any."""
+        base_message = f"Retrieved {len(self.items) if self.items else 0} profile(s)"
+        if self.warnings:
+            warning_text = "; ".join(self.warnings)
+            return f"{base_message} (Warnings: {warning_text})"
+        return base_message
+
+    def to_json(self) -> str:
+        """Convert to JSON format."""
+        self.update()  # Ensure items are populated
+        profiles_data = []
+        for item in self.items:
+            profiles_data.append(item.get_simple_data())
+        
+        return create_success_response(
+            data=profiles_data,
+            message=self.get_message()
+        )

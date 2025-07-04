@@ -54,17 +54,23 @@ def create_json_response(
     
     return json.dumps(response, ensure_ascii=False, separators=(',', ':'))
 
-def create_success_response(data: Any = None, message: str = "Success", http_code: int = 200) -> str:
+def create_success_response(data: Any = None, message: str = "Success", http_code: int = 200, warnings: Optional[list] = None) -> str:
     """Create a success JSON response.
     
     Args:
         data: Response data
         message: Success message
         http_code: HTTP status code (default: 200)
+        warnings: List of warning messages to include in the response
     
     Returns:
         JSON string with success format
     """
+    # Add warnings to message if present
+    if warnings:
+        warning_text = "; ".join(warnings)
+        message = f"{message} (Warnings: {warning_text})"
+    
     return create_json_response(
         status="ok",
         http_code=http_code,

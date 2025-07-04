@@ -15,22 +15,28 @@ from ssky.result import (
 )
 from ssky.util import disjoin_uri_cid, is_joined_uri_cid
 from time import sleep
+import logging
+import atproto_client.exceptions
 
-def get_card(links):
-    title = None
-    description = None
+# Configure logger for post module
+logger = logging.getLogger(__name__)
 
+def get_card(links, warnings=None):
+    if warnings is None:
+        warnings = []
+        
     headers = { 'Cache-Control': 'no-cache', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36' }
-
-    for key in links:
-        uri = links[key]['uri']
+        
+    cards = []
+    for link in links.values():
+        uri = link['uri']
 
         res = None
         try:
             res = requests.get(uri, headers=headers)
         except Exception as e:
             error_message = str(e)
-            print(f'{error_message}', file=sys.stderr)
+            warnings.append(f'Failed to fetch card: {error_message}')
             continue
 
         if res.status_code >= 400:
@@ -48,30 +54,43 @@ def get_card(links):
 
             if res.status_code >= 400:
                 error = ' '.join([str(res.status_code), res.text if res.text is not None else ''])
-                print(f'{error} ', file=sys.stderr)
+                warnings.append(f'HTTP error fetching card: {error}')
                 continue
 
         if not 'Content-Type' in res.headers:
-            print('No Content-Type', file=sys.stderr)
+            warnings.append('No Content-Type header in card response')
             continue
 
         content_type_fragments = res.headers['Content-Type'].split(';')
 
         mime_type = content_type_fragments[0].strip().lower()
         if mime_type != 'text/html':
-            print(f'Unexpected mime type {mime_type}', file=sys.stderr)
+            warnings.append(f'Unexpected mime type: {mime_type}')
             continue
 
-        if len(content_type_fragments) < 2:
-            print(f'Warning: get_card: No charset; assume utf-8', file=sys.stderr)
+        if len(content_type_fragments) >= 2:
+            charset = content_type_fragments[1].strip().lower()
+            if not charset.startswith('charset='):
+                warnings.append('Warning: get_card: No charset; assume utf-8')
+                charset = 'utf-8'
+            else:
+                charset = charset[8:]
+                if charset != 'utf-8':
+                    warnings.append(f'Unexpected charset: {charset}')
+                    continue
         else:
-            charset = content_type_fragments[1].split('=')[1].strip().lower()
-            if charset != 'utf-8':
-                print(f'Unexpected charset {charset}', file=sys.stderr)
-                continue
+            warnings.append('Warning: get_card: No charset; assume utf-8')
+            charset = 'utf-8'
 
-        if len(res.text) == 0:
-            print('Empty content', file=sys.stderr)
+        if len(res.content) == 0:
+            warnings.append('Empty content in card response')
+            continue
+
+        # Import BeautifulSoup here to avoid import error if not installed
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            warnings.append('BeautifulSoup not available for card parsing')
             continue
 
         soup = BeautifulSoup(res.content, 'html.parser')
@@ -101,14 +120,14 @@ def get_card(links):
             if len(thumbnail) == 0:
                 thumbnail = None
 
-        return {
+        cards.append({
             'title': title,
             'description': description,
             'thumbnail': thumbnail,
             'uri': uri
-        }
+        })
 
-    return None
+    return cards
 
 def byte_len(text):
     return len(text.encode('UTF-8'))
@@ -143,15 +162,18 @@ def get_mentions(message):
         mentions[key]['did'] = did
     return mentions
 
-def get_thumbnail(uri):
+def get_thumbnail(uri, warnings=None):
     headers = { 'Cache-Control': 'no-cache', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36' }
+    
+    if warnings is None:
+        warnings = []
 
     res = None
     try:
         res = requests.get(uri, headers=headers)
     except Exception as e:
         error_message = str(e)
-        print(f'{error_message}', file=sys.stderr)
+        warnings.append(f'Failed to fetch thumbnail: {error_message}')
         return None
 
     if res.status_code >= 400:
@@ -169,17 +191,17 @@ def get_thumbnail(uri):
 
         if res.status_code >= 400:
             error = ' '.join([str(res.status_code), res.text if res.text is not None else ''])
-            print(f'{error} ', file=sys.stderr)
+            warnings.append(f'HTTP error fetching thumbnail: {error}')
             return None
 
     if not 'Content-Type' in res.headers:
-        print('No Content-Type', file=sys.stderr)
+        warnings.append('No Content-Type header in thumbnail response')
         return None
 
     content_type_fragments = res.headers['Content-Type'].split(';')
     mime_type = content_type_fragments[0].strip().lower()
     if mime_type != 'image/jpeg' and mime_type != 'image/png' and mime_type != 'image/gif':
-        print(f'Unexpected mime type {mime_type}', file=sys.stderr)
+        warnings.append(f'Unexpected mime type for thumbnail: {mime_type}')
         return None
 
     return res.content
@@ -219,6 +241,8 @@ def get_root_strong_ref(post):
         return retrieved_post.value.reply.root
 
 def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwargs):
+    warnings = []  # Collect warnings during processing
+    
     try:
         current_session = ssky_client()
         if current_session is None:
@@ -300,11 +324,16 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwarg
         # Wait for post to be available and return it
         post = get_post(result.uri)
         while post is None:
-            print('waiting', file=sys.stderr)
+            warnings.append('Waiting for post to become available')
             sleep(1)
             post = get_post(result.uri)
         
-        return PostDataList().append(post)
+        # Create PostDataList and add warnings
+        post_list = PostDataList().append(post)
+        for warning in warnings:
+            post_list.add_warning(warning)
+        
+        return post_list
         
     except atproto_client.exceptions.AtProtocolError as e:
         raise AtProtocolSskyError(e) from e

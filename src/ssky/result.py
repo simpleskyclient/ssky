@@ -8,6 +8,7 @@ used throughout the ssky application.
 import json
 from datetime import datetime, timezone
 from typing import Any, Optional
+import sys
 
 
 class ErrorResult:
@@ -32,19 +33,30 @@ class ErrorResult:
 
 
 class SuccessResult:
-    """Represents a successful result with optional data."""
+    """Represents a successful result with optional data and warnings."""
     
-    def __init__(self, data: Any = None, message: str = "Success"):
+    def __init__(self, data: Any = None, message: str = "Success", warnings: list = None):
         self.data = data
         self.message = message
+        self.warnings = warnings or []
+
+    def add_warning(self, warning: str) -> None:
+        """Add a warning message to the result."""
+        self.warnings.append(warning)
 
     def to_json(self) -> str:
         """Convert to JSON format."""
         from .util import create_success_response
-        return create_success_response(
-            data=self.data,
-            message=self.message
-        )
+        
+        # If data has its own to_json method, use it directly
+        if hasattr(self.data, 'to_json'):
+            return self.data.to_json()
+        else:
+            return create_success_response(
+                data=self.data,
+                message=self.message,
+                warnings=self.warnings if self.warnings else None
+            )
 
     def print(self, format: str, output: str = None, delimiter: str = ' ') -> None:
         """Print the success result in the specified format."""
@@ -58,6 +70,10 @@ class SuccessResult:
                 f.write(content + '\n')
         else:
             print(content)
+            # Print warnings to stderr in text format
+            if self.warnings and format not in ('json', 'simple_json'):
+                for warning in self.warnings:
+                    print(f"Warning: {warning}", file=sys.stderr)
 
     def __str__(self) -> str:
         return self.message

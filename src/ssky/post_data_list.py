@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import re
+import sys
 from atproto_client import models
 from ssky.util import join_uri_cid, summarize, create_success_response
 
@@ -156,6 +157,7 @@ class PostDataList:
 
     def __init__(self, default_delimiter: str = None) -> None:
         self.items = []
+        self.warnings = []  # Add warnings list
         if default_delimiter is not None:
             self.default_delimiter = default_delimiter
 
@@ -201,7 +203,10 @@ class PostDataList:
                 posts_data = []
                 for item in self.items:
                     posts_data.append(item.get_simple_data())
-                print(create_success_response(data=posts_data))
+                
+                # Include warnings in message for simple_json format
+                message = self.get_message()
+                print(create_success_response(data=posts_data, message=message))
             else:
                 # Output each item individually
                 for i, item in enumerate(self.items):
@@ -209,3 +214,27 @@ class PostDataList:
                     if format == 'long' and i > 0:
                         print('----------------')
                     print(item.printable(format, delimiter=delimiter))
+
+    def add_warning(self, warning: str) -> None:
+        """Add a warning message to the list."""
+        self.warnings.append(warning)
+        print(f"Warning: {warning}", file=sys.stderr)
+
+    def get_message(self) -> str:
+        """Get message including warnings if any."""
+        base_message = f"Posted {len(self.items)} item(s)"
+        if self.warnings:
+            warning_text = "; ".join(self.warnings)
+            return f"{base_message} (Warnings: {warning_text})"
+        return base_message
+
+    def to_json(self) -> str:
+        """Convert to JSON format."""
+        posts_data = []
+        for item in self.items:
+            posts_data.append(item.get_simple_data())
+        
+        return create_success_response(
+            data=posts_data,
+            message=self.get_message()
+        )
