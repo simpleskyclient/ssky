@@ -1,8 +1,12 @@
 import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, get_http_status_from_exception, ErrorResult
-from typing import Union
+from ssky.result import (
+    AtProtocolSskyError,
+    SessionError,
+    InvalidActorError
+)
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid
 
 def get_posts(client, uri, cid) -> None:
     res = client.get_posts([uri])
@@ -26,35 +30,32 @@ def get_timeline(client, limit=100) -> None:
         post_data_list.append(feed_post.post)
     return post_data_list
 
-def get(target=None, limit=100, **kwargs) -> Union[ErrorResult, PostDataList]:
+def get(param=None, limit=25, **kwargs) -> PostDataList:
     try:
-        client = ssky_client()
-        if client is None:
-            return ErrorResult("No valid session available", 401)
+        current_session = ssky_client()
+        if current_session is None:
+            raise SessionError()
         
-        if target is None:
-            post_data_list = get_timeline(client, limit=limit)
-        elif target.startswith('at://'):
-            if is_joined_uri_cid(target):
-                uri, cid = disjoin_uri_cid(target)
+        if param is None:
+            # Get timeline
+            return get_timeline(current_session, limit=limit)
+        elif param.startswith('at://'):
+            # AT URI - single post or post with CID
+            if is_joined_uri_cid(param):
+                uri, cid = disjoin_uri_cid(param)
             else:
-                uri = target
+                uri = param
                 cid = None
-            post_data_list = get_posts(client, uri, cid)
-        elif target.startswith('did:'):
-            post_data_list = get_author_feed(client, target, limit=limit)
+            return get_posts(current_session, uri, cid)
+        elif param.startswith('did:'):
+            # DID - get author feed
+            return get_author_feed(current_session, param, limit=limit)
         else:
-            actor = expand_actor(target)
-            post_data_list = get_author_feed(client, actor, limit=limit)
-        return post_data_list
+            # Handle or other identifier - expand and get author feed
+            actor = expand_actor(param)
+            if not actor:
+                raise InvalidActorError()
+            return get_author_feed(current_session, actor, limit=limit)
         
     except atproto_client.exceptions.AtProtocolError as e:
-        http_code = get_http_status_from_exception(e)
-        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-            message = e.response.content.message
-        elif str(e) is not None and len(str(e)) > 0:
-            message = str(e)
-        else:
-            message = e.__class__.__name__
-        
-        return ErrorResult(message, http_code)
+        raise AtProtocolSskyError(e) from e

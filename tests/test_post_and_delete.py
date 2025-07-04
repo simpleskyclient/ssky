@@ -7,7 +7,8 @@ from time import sleep
 from ssky.delete import delete
 from ssky.post import post
 from ssky.post_data_list import PostDataList
-from ssky.util import join_uri_cid, ErrorResult
+from ssky.util import join_uri_cid
+from ssky.result import ErrorResult
 from ssky.ssky_session import SskySession
 from tests.common import create_mock_ssky_session, has_credentials
 
@@ -62,13 +63,15 @@ class TestPostDeleteSequential:
     def test_01_post_dry_run(self):
         """Test dry run functionality without API calls"""
         # Test dry run - should not make API calls
+        from ssky.result import DryRunResult
         message = os.environ.get('SSKY_TEST_POST_TEXT', 'Test post message')
         image = os.environ.get('SSKY_TEST_POST_IMAGE')
         
         dry_result = post(message=message, image=[image] if image else [], dry=True)
         
-        # Dry run should return a list (preview)
-        assert isinstance(dry_result, list), "Dry run should return list"
+        # Dry run should return a DryRunResult object
+        assert isinstance(dry_result, DryRunResult), "Dry run should return DryRunResult"
+        assert dry_result.message == message, "DryRunResult should contain the message"
     
     def test_02_real_post_quote_reply_delete_cycle(self):
         """Real API test - post, quote, reply, and delete cycle (only real API test in this file)"""
@@ -173,12 +176,12 @@ class TestPostDeleteSequential:
     def test_04_post_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available
+        from ssky.result import SessionError
         with patch('ssky.post.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = post(message="test")
-            assert isinstance(result, ErrorResult), "Post should return ErrorResult when no session available"
-            assert result.http_code == 401, "Should return 401 error code"
+            with pytest.raises(SessionError):
+                post(message="test")
         
         # Test 2: Empty message with mocked stdin and mocked client
         import io
@@ -213,5 +216,6 @@ class TestPostDeleteSequential:
                 assert isinstance(result, PostDataList), "Post should return PostDataList even with empty message"
         
         # Test 3: Test delete with invalid URI
-        result = delete("invalid://uri")
-        assert isinstance(result, ErrorResult), "Delete should return ErrorResult with invalid URI"
+        from ssky.result import SskyError
+        with pytest.raises(SskyError):
+            delete("invalid://uri")

@@ -1,35 +1,29 @@
 import atproto_client
 from ssky.ssky_session import ssky_client
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, get_http_status_from_exception, ErrorResult, SuccessResult
-from typing import Union
+from ssky.result import (
+    AtProtocolSskyError,
+    SuccessResult, 
+    SessionError, 
+    OperationFailedError
+)
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid
 
-def delete(post, **kwargs) -> Union[ErrorResult, SuccessResult]:
-    if is_joined_uri_cid(post):
-        uri, _ = disjoin_uri_cid(post)
-    else:
-        uri = post
-
+def delete(target, **kwargs) -> SuccessResult:
     try:
-        client = ssky_client()
-        if client is None:
-            return ErrorResult("No valid session available", 401)
+        current_session = ssky_client()
+        if current_session is None:
+            raise SessionError()
         
-        status = client.delete_post(uri)
-        if status is False:
-            return ErrorResult("Failed to delete", 500)
-        
-        return SuccessResult(data=uri, message=f"Post deleted: {uri}")
-        
-    except atproto_client.exceptions.LoginRequiredError as e:
-        return ErrorResult(str(e), 401)
-        
-    except atproto_client.exceptions.AtProtocolError as e:
-        http_code = get_http_status_from_exception(e)
-        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-            message = e.response.content.message
-        elif str(e) is not None and len(str(e)) > 0:
-            message = str(e)
+        if is_joined_uri_cid(target):
+            uri, cid = disjoin_uri_cid(target)
         else:
-            message = e.__class__.__name__
+            uri = target
+            cid = None
         
-        return ErrorResult(message, http_code)
+        result = current_session.delete_post(uri)
+        if not result:
+            raise OperationFailedError("delete post")
+        
+        return SuccessResult(data={"deleted": uri}, message="Post deleted successfully")
+    except atproto_client.exceptions.AtProtocolError as e:
+        raise AtProtocolSskyError(e) from e

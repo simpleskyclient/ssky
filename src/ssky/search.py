@@ -4,8 +4,10 @@ from atproto import models
 import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
-from ssky.util import get_http_status_from_exception, ErrorResult
-from typing import Union
+from ssky.result import (
+    AtProtocolSskyError,
+    SessionError
+)
 
 def expand_datetime(dt: str) -> str:
     if dt:
@@ -24,38 +26,44 @@ def expand_datetime(dt: str) -> str:
     else:
         return None
 
-def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> Union[ErrorResult, PostDataList]:
-    since = expand_datetime(since)
-    until = expand_datetime(until)
-
+def search(query=None, author=None, since=None, until=None, limit=25, **kwargs) -> PostDataList:
     try:
-        client = ssky_client()
-        if client is None:
-            return ErrorResult("No valid session available", 401)
+        current_session = ssky_client()
+        if current_session is None:
+            raise SessionError()
         
-        res = client.app.bsky.feed.search_posts(
-            models.AppBskyFeedSearchPosts.Params(
-                author=expand_actor(author),
-                limit=limit,
-                q=q,
-                since=since,
-                until=until
-            )
-        )
-
-        post_data_list = PostDataList()
-        if res.posts and len(res.posts) > 0:
-            for post in res.posts:
-                post_data_list.append(post)
-        return post_data_list
+        if author is not None:
+            author = expand_actor(author)
         
+        # Build search query
+        search_query = query if query else ""
+        if author:
+            search_query += f" from:{author}"
+        if since:
+            if isinstance(since, str):
+                if since.lower() == "today":
+                    since = datetime.now().strftime("%Y-%m-%d")
+                elif since.lower() == "yesterday":
+                    since = (datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+            search_query += f" since:{since}"
+        if until:
+            if isinstance(until, str):
+                if until.lower() == "today":
+                    until = datetime.now().strftime("%Y-%m-%d")
+                elif until.lower() == "yesterday":
+                    until = (datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+            search_query += f" until:{until}"
+        
+        response = current_session.app.bsky.feed.search_posts(params={
+            'q': search_query.strip(),
+            'limit': limit
+        })
+        
+        result = PostDataList()
+        if response.posts:
+            for post in response.posts:
+                result.append(post)
+        
+        return result
     except atproto_client.exceptions.AtProtocolError as e:
-        http_code = get_http_status_from_exception(e)
-        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-            message = e.response.content.message
-        elif str(e) is not None and len(str(e)) > 0:
-            message = str(e)
-        else:
-            message = e.__class__.__name__
-        
-        return ErrorResult(message, http_code)
+        raise AtProtocolSskyError(e) from e

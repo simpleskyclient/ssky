@@ -6,6 +6,7 @@ from operator import attrgetter
 import os
 import signal
 import sys
+from ssky.result import ErrorResult, SuccessResult, DryRunResult, SskyError
 
 def get_version():
     """Get the version of the ssky package."""
@@ -94,38 +95,22 @@ def execute(subcommand, args) -> bool:
 
         if result is None:
             return False
+        
+        from ssky.post_data_list import PostDataList
+        from ssky.profile_list import ProfileList
+        
+        if hasattr(result, 'print'):
+            result.print(format=args.format, output=args.output, delimiter=args.delimiter)
         else:
-            from ssky.post_data_list import PostDataList
-            from ssky.profile_list import ProfileList
-            from ssky.util import ErrorResult, SuccessResult, DryRunResult
-            
-            if isinstance(result, ErrorResult):
-                # Error result - centralized error output handling
-                if args.format in ('json', 'simple_json'):
-                    print(result.to_json())
-                else:
-                    print(str(result), file=sys.stderr)
-                return False
-            elif isinstance(result, SuccessResult):
-                # Success result - centralized success output handling
-                if args.format in ('json', 'simple_json'):
-                    print(result.to_json())
-                else:
-                    print(str(result))
-            elif isinstance(result, DryRunResult):
-                # Dry-run result - use its print method for JSON/text output
-                result.print(format=args.format, output=args.output, delimiter=args.delimiter)
-            elif type(result) is PostDataList or type(result) is ProfileList:
-                result.print(format=args.format, output=args.output, delimiter=args.delimiter)
-            elif type(result) is list:
-                if type(result[0]) is list:
-                    for item in result:
-                        print(args.delimiter.join(filter(lambda s: s is not None, item)))
-                else:
-                    print(args.delimiter.join(filter(lambda s: s is not None, result)))
-            else:
-                print(result)
-            return True
+            print(result)
+        return True
+    except SskyError as e:
+        error_result = ErrorResult(e.message, e.http_code)
+        if args.format in ('json', 'simple_json'):
+            print(error_result.to_json())
+        else:
+            print(str(error_result), file=sys.stderr)
+        return False
     except ImportError as e:
         print(f'Module or function not found: {__package__}.{subcommand}', file=sys.stderr)
         print(e, file=sys.stderr)

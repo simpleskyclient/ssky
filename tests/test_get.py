@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 from ssky.get import get
 from ssky.post_data_list import PostDataList
 from ssky.ssky_session import SskySession
-from ssky.util import ErrorResult
+from ssky.result import ErrorResult
 from tests.common import create_mock_ssky_session, has_credentials
 
 @pytest.fixture
@@ -60,7 +60,7 @@ class TestGetSequential:
         
         # This test uses real API calls - no mocking
         try:
-            result = get(target=None)
+            result = get(param=None)
             assert isinstance(result, PostDataList), "Get timeline should return PostDataList"
         finally:
             SskySession.clear()
@@ -72,7 +72,7 @@ class TestGetSequential:
         with patch('ssky.get.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
             
-            result = get(target='myself')
+            result = get(param='myself')
             assert isinstance(result, PostDataList), "Get myself should return PostDataList"
     
     def test_03_get_with_actor_handle(self, mock_get_environment):
@@ -83,7 +83,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             handle = os.environ.get('SSKY_TEST_HANDLE', 'test.bsky.social')
-            result = get(target=handle)
+            result = get(param=handle)
             
             assert isinstance(result, PostDataList), "Get by handle should return PostDataList"
     
@@ -95,7 +95,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             did = os.environ.get('SSKY_TEST_DID', 'did:plc:test123')
-            result = get(target=did)
+            result = get(param=did)
             
             assert isinstance(result, PostDataList), "Get by DID should return PostDataList"
     
@@ -107,7 +107,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             uri = os.environ.get('SSKY_TEST_URI', 'at://test.user/app.bsky.feed.post/test123')
-            result = get(target=uri)
+            result = get(param=uri)
             
             assert isinstance(result, PostDataList), "Get by URI should return PostDataList"
     
@@ -119,7 +119,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             uri_cid = os.environ.get('SSKY_TEST_URI_CID', 'at://test.user/app.bsky.feed.post/test123|testcid123')
-            result = get(target=uri_cid)
+            result = get(param=uri_cid)
             
             assert isinstance(result, PostDataList), "Get by URI+CID should return PostDataList"
     
@@ -135,35 +135,39 @@ class TestGetSequential:
         with patch('ssky.get.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
             
-            # Test invalid handle
-            invalid_handle = os.environ.get('SSKY_TEST_INVALID_HANDLE', 'invalid.handle.test')
-            result = get(target=invalid_handle)
-            assert isinstance(result, ErrorResult), "Get with invalid handle should return ErrorResult"
+            from ssky.result import InvalidActorError, AtProtocolSskyError
             
-            # Test invalid DID
+            # Test invalid handle - expand_actor returns None, so InvalidActorError
+            with patch('ssky.get.expand_actor') as mock_expand_actor:
+                mock_expand_actor.return_value = None
+                invalid_handle = os.environ.get('SSKY_TEST_INVALID_HANDLE', 'invalid.handle.test')
+                with pytest.raises(InvalidActorError):
+                    get(param=invalid_handle)
+            
+            # Test invalid DID - goes directly to get_author_feed, so AtProtocolSskyError
             invalid_did = os.environ.get('SSKY_TEST_INVALID_DID', 'did:plc:invalid123')
-            result = get(target=invalid_did)
-            assert isinstance(result, ErrorResult), "Get with invalid DID should return ErrorResult"
+            with pytest.raises(AtProtocolSskyError):
+                get(param=invalid_did)
             
-            # Test invalid URI
+            # Test invalid URI - should raise AtProtocolSskyError from API call
             invalid_uri = os.environ.get('SSKY_TEST_INVALID_URI', 'at://invalid/uri')
-            result = get(target=invalid_uri)
-            assert isinstance(result, ErrorResult), "Get with invalid URI should return ErrorResult"
+            with pytest.raises(AtProtocolSskyError):
+                get(param=invalid_uri)
             
-            # Test invalid URI+CID
+            # Test invalid URI+CID - should raise AtProtocolSskyError from API call
             invalid_uri_cid = os.environ.get('SSKY_TEST_INVALID_URI_CID', 'at://invalid/uri|invalidcid')
-            result = get(target=invalid_uri_cid)
-            assert isinstance(result, ErrorResult), "Get with invalid URI+CID should return ErrorResult"
+            with pytest.raises(AtProtocolSskyError):
+                get(param=invalid_uri_cid)
     
     def test_08_get_error_scenarios(self):
         """Test error handling scenarios"""
         # Test: No session available
+        from ssky.result import SessionError
         with patch('ssky.get.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = get(target=None)
-            assert isinstance(result, ErrorResult), "Get should return ErrorResult when no session available"
-            assert result.http_code == 401, "Get should return 401 error code"
+            with pytest.raises(SessionError):
+                get(param=None)
     
     def test_09_get_with_json_format(self, mock_get_environment):
         """Test get with JSON format output"""
@@ -172,5 +176,5 @@ class TestGetSequential:
         with patch('ssky.get.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
 
-            result = get(target=None, format='json')
+            result = get(param=None, format='json')
             assert isinstance(result, PostDataList), "Get with JSON format should return PostDataList"

@@ -2,12 +2,13 @@ import os
 import tempfile
 import pytest
 from unittest.mock import patch, Mock
+import time
 
 from ssky.profile_list import ProfileList
 from ssky.follow import follow
 from ssky.unfollow import unfollow
 from ssky.ssky_session import SskySession
-from ssky.util import ErrorResult
+from ssky.result import ErrorResult
 from tests.common import create_mock_ssky_session, has_credentials
 
 @pytest.fixture
@@ -68,7 +69,6 @@ class TestFollowUnfollowSequential:
             assert isinstance(follow_result, ProfileList), "Follow should return ProfileList"
             
             # Wait a bit before unfollowing
-            import time
             time.sleep(5)
             
             # Unfollow
@@ -126,25 +126,27 @@ class TestFollowUnfollowSequential:
             mock_ssky_client.return_value = mock_client
             
             handle = os.environ.get('SSKY_TEST_HANDLE', 'test.bsky.social')
-            result = unfollow(handle)
             
-            assert isinstance(result, ErrorResult), "Unfollow should return ErrorResult when not following"
+            from ssky.result import NotFoundError
+            with pytest.raises(NotFoundError):
+                unfollow(handle)
     
     def test_05_follow_invalid_user(self, mock_follow_environment):
         """Test follow with invalid user"""
         mock_session, mock_client, mock_profile = mock_follow_environment
         
-        # Mock get_profile to raise exception for invalid user
+        # Mock follow to raise exception for invalid user
         import atproto_client
-        mock_client.get_profile.side_effect = atproto_client.exceptions.AtProtocolError("User not found")
+        mock_client.follow.side_effect = atproto_client.exceptions.AtProtocolError("User not found")
         
         with patch('ssky.follow.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
             
             invalid_did = os.environ.get('SSKY_TEST_INVALID_DID', 'did:plc:invalid123')
-            result = follow(invalid_did)
             
-            assert isinstance(result, ErrorResult), "Follow should return ErrorResult for invalid user"
+            from ssky.result import AtProtocolSskyError
+            with pytest.raises(AtProtocolSskyError):
+                follow(invalid_did)
     
     def test_06_unfollow_invalid_user(self, mock_follow_environment):
         """Test unfollow with invalid user"""
@@ -158,35 +160,36 @@ class TestFollowUnfollowSequential:
             mock_ssky_client.return_value = mock_client
             
             invalid_did = os.environ.get('SSKY_TEST_INVALID_DID', 'did:plc:invalid123')
-            result = unfollow(invalid_did)
             
-            assert isinstance(result, ErrorResult), "Unfollow should return ErrorResult for invalid user"
+            from ssky.result import AtProtocolSskyError
+            with pytest.raises(AtProtocolSskyError):
+                unfollow(invalid_did)
     
     def test_07_follow_unfollow_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available for follow
+        from ssky.result import SessionError
         with patch('ssky.follow.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = follow("test.bsky.social")
-            assert isinstance(result, ErrorResult), "Follow should return ErrorResult when no session available"
-            assert result.http_code == 401, "Should return 401 error code"
+            with pytest.raises(SessionError):
+                follow("test.bsky.social")
         
         # Test 2: No session available for unfollow
         with patch('ssky.unfollow.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = unfollow("test.bsky.social")
-            assert isinstance(result, ErrorResult), "Unfollow should return ErrorResult when no session available"
-            assert result.http_code == 401, "Should return 401 error code"
+            with pytest.raises(SessionError):
+                unfollow("test.bsky.social")
         
         # Test 3: Empty identifier for follow
-        result = follow("")
-        assert isinstance(result, ErrorResult), "Follow should return ErrorResult with empty identifier"
+        from ssky.result import InvalidActorError
+        with pytest.raises(InvalidActorError):
+            follow("")
         
         # Test 4: Empty identifier for unfollow
-        result = unfollow("")
-        assert isinstance(result, ErrorResult), "Unfollow should return ErrorResult with empty identifier"
+        with pytest.raises(InvalidActorError):
+            unfollow("")
     
     def test_08_follow_unfollow_with_json_format(self, mock_follow_environment):
         """Test follow/unfollow with JSON format output"""
@@ -204,9 +207,13 @@ class TestFollowUnfollowSequential:
         # Test unfollow with JSON format
         # Update mock to match the test handle
         handle = os.environ.get('SSKY_TEST_HANDLE', 'test.bsky.social')
+        
+        # Mock expand_actor to return a consistent DID
+        test_did = "did:plc:test123"
+        
         mock_follow = Mock()
-        mock_follow.did = "did:plc:test123"
-        mock_follow.handle = handle  # Use the actual test handle
+        mock_follow.did = test_did
+        mock_follow.handle = handle
         mock_follow.viewer = Mock()
         mock_follow.viewer.following = "at://test.user/app.bsky.graph.follow/test123"
         
@@ -214,8 +221,10 @@ class TestFollowUnfollowSequential:
         mock_follows_response.follows = [mock_follow]
         mock_client.get_follows.return_value = mock_follows_response
         
-        with patch('ssky.unfollow.ssky_client') as mock_ssky_client:
+        with patch('ssky.unfollow.ssky_client') as mock_ssky_client, \
+             patch('ssky.unfollow.expand_actor') as mock_expand_actor:
             mock_ssky_client.return_value = mock_client
+            mock_expand_actor.return_value = test_did  # Make sure expand_actor returns the same DID
             
             result = unfollow(handle, format='json')
             

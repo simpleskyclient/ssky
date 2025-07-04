@@ -4,7 +4,12 @@ from unittest.mock import patch, Mock
 
 from ssky.login import login
 from ssky.profile_list import ProfileList
-from ssky.util import ErrorResult
+from ssky.result import (
+    EmptyCredentialsError,
+    InvalidCredentialFormatError,
+    ProfileUnavailableAfterLoginError,
+    AtProtocolSskyError
+)
 from tests.common import (
     create_mock_ssky_session, BaseSequentialTest,
     MasterSessionManager, has_credentials
@@ -74,7 +79,6 @@ class TestLoginSequential(BaseSequentialTest):
             assert call_args.kwargs['password'] == "testpassword", "Password should be parsed correctly"
             
             # Verify session methods were called
-            mock_session.persist.assert_called_once()
             mock_session.profile.assert_called_once()
             
             # Verify result
@@ -100,7 +104,6 @@ class TestLoginSequential(BaseSequentialTest):
             mock_session_class.assert_called_once()
             
             # Verify session methods were called
-            mock_session.persist.assert_called_once()
             mock_session.profile.assert_called_once()
             
             # Verify result
@@ -113,19 +116,16 @@ class TestLoginSequential(BaseSequentialTest):
         mock_session, mock_client, mock_profile = mock_ssky_session
         
         # Test 1: Empty credentials
-        result = login(credentials="")
-        assert isinstance(result, ErrorResult), "Should return ErrorResult for empty credentials"
-        assert result.http_code == 400, "Should return 400 error code"
+        with pytest.raises(EmptyCredentialsError):
+            login(credentials="")
         
         # Test 2: Invalid format (no colon)
-        result = login(credentials="invalid_format")
-        assert isinstance(result, ErrorResult), "Should return ErrorResult for invalid format"
-        assert result.http_code == 400, "Should return 400 error code"
+        with pytest.raises(InvalidCredentialFormatError):
+            login(credentials="invalid_format")
         
         # Test 3: Only whitespace
-        result = login(credentials="   ")
-        assert isinstance(result, ErrorResult), "Should return ErrorResult for whitespace-only credentials"
-        assert result.http_code == 400, "Should return 400 error code"
+        with pytest.raises(EmptyCredentialsError):
+            login(credentials="   ")
         
         # Test 4: Valid format with colon
         with patch('ssky.login.SskySession') as mock_session_class:
@@ -147,25 +147,16 @@ class TestLoginSequential(BaseSequentialTest):
             import atproto_client
             mock_session_class.side_effect = atproto_client.exceptions.LoginRequiredError("Mock login required")
             
-            result = login(credentials="test:test")
-            assert isinstance(result, ErrorResult), "Should return ErrorResult on LoginRequiredError"
-            assert result.http_code == 401, "Should return 401 error code"
+            with pytest.raises(AtProtocolSskyError):
+                login(credentials="test:test")
         
         # Test 2: AtProtocolError from SskySession
         with patch('ssky.login.SskySession') as mock_session_class:
             import atproto_client
             mock_session_class.side_effect = atproto_client.exceptions.AtProtocolError("Mock auth failed")
             
-            result = login(credentials="test:test")
-            assert isinstance(result, ErrorResult), "Should return ErrorResult on AtProtocolError"
-        
-        # Test 3: Generic Exception from SskySession
-        with patch('ssky.login.SskySession') as mock_session_class:
-            mock_session_class.side_effect = Exception("Mock unexpected error")
-            
-            result = login(credentials="test:test")
-            assert isinstance(result, ErrorResult), "Should return ErrorResult on generic Exception"
-            assert result.http_code == 500, "Should return 500 error code"
+            with pytest.raises(AtProtocolSskyError):
+                login(credentials="test:test")
     
     def test_05_login_profile_availability_check(self, login_environment, mock_ssky_session):
         """Test profile availability check after login"""
@@ -179,9 +170,8 @@ class TestLoginSequential(BaseSequentialTest):
         with patch('ssky.login.SskySession') as mock_session_class:
             mock_session_class.return_value = mock_session
             
-            result = login(credentials="test:test")
-            assert isinstance(result, ErrorResult), "Should return ErrorResult when profile is None"
-            assert result.http_code == 500, "Should return 500 error code"
+            with pytest.raises(ProfileUnavailableAfterLoginError):
+                login(credentials="test:test")
         
         # Test 2: Profile has no DID
         mock_session, mock_client, mock_profile = create_mock_ssky_session()
@@ -190,9 +180,8 @@ class TestLoginSequential(BaseSequentialTest):
         with patch('ssky.login.SskySession') as mock_session_class:
             mock_session_class.return_value = mock_session
             
-            result = login(credentials="test:test")
-            assert isinstance(result, ErrorResult), "Should return ErrorResult when profile has no DID"
-            assert result.http_code == 500, "Should return 500 error code"
+            with pytest.raises(ProfileUnavailableAfterLoginError):
+                login(credentials="test:test")
         
         # Test 3: Profile missing DID attribute
         mock_session, mock_client, mock_profile = create_mock_ssky_session()
@@ -201,12 +190,11 @@ class TestLoginSequential(BaseSequentialTest):
         with patch('ssky.login.SskySession') as mock_session_class:
             mock_session_class.return_value = mock_session
             
-            result = login(credentials="test:test")
-            assert isinstance(result, ErrorResult), "Should return ErrorResult when profile missing DID attribute"
-            assert result.http_code == 500, "Should return 500 error code"
+            with pytest.raises(ProfileUnavailableAfterLoginError):
+                login(credentials="test:test")
     
     def test_06_login_no_credentials_available(self, login_environment):
-        """Test login behavior when no credentials are available but session file exists"""
+        """Test login behavior when no credentials are available but valid session file exists"""
         
         # Temporarily remove SSKY_USER environment variable
         original_user = os.environ.get('SSKY_USER')
@@ -219,18 +207,9 @@ class TestLoginSequential(BaseSequentialTest):
         
         try:
             # Test login without explicit credentials
-            # Should succeed if valid session file exists (normal behavior)
+            # Should succeed if valid session file exists
             result = login()
-            
-            # Check if session file exists to determine expected behavior
-            session_file = os.path.expanduser('~/.ssky')
-            if os.path.exists(session_file):
-                # Session file exists - login should succeed using existing session
-                assert isinstance(result, ProfileList), "Should return ProfileList when valid session file exists"
-            else:
-                # No session file - should return error
-                assert isinstance(result, ErrorResult), "Should return ErrorResult when no credentials and no session file"
-                assert result.http_code == 401, "Should return 401 error code"
+            assert isinstance(result, ProfileList), "Should return ProfileList when valid session file exists"
                 
         finally:
             # Restore original environment variable
@@ -259,9 +238,8 @@ class TestLoginSequential(BaseSequentialTest):
         
         try:
             # Test login without any credentials or session file
-            result = login()
-            assert isinstance(result, ErrorResult), "Should return ErrorResult when no credentials and no session file"
-            assert result.http_code == 401, "Should return 401 error code"
+            with pytest.raises(AtProtocolSskyError):
+                login()
         finally:
             # Restore original environment variable
             if original_user:

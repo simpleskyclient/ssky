@@ -6,7 +6,7 @@ from unittest.mock import patch, Mock
 from ssky.post_data_list import PostDataList
 from ssky.search import search
 from ssky.ssky_session import SskySession
-from ssky.util import ErrorResult
+from ssky.result import ErrorResult
 from tests.common import create_mock_ssky_session, has_credentials
 
 @pytest.fixture
@@ -184,16 +184,17 @@ class TestSearchSequential:
     def test_07_search_error_scenarios(self):
         """Test error handling scenarios"""
         # Test: No session available
+        from ssky.result import SessionError
         with patch('ssky.search.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = search("test")
-            assert isinstance(result, ErrorResult), "Search should return ErrorResult when no session available"
-            assert result.http_code == 401, "Search should return 401 error code"
+            with pytest.raises(SessionError):
+                search("test")
         
         # Test: Empty query
-        result = search("")
-        assert isinstance(result, ErrorResult), "Search should return ErrorResult with empty query"
+        from ssky.result import AtProtocolSskyError
+        with pytest.raises(AtProtocolSskyError):
+            search("")
     
     def test_08_search_with_json_format(self, mock_search_environment):
         """Test search with JSON format output"""

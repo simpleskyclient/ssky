@@ -1,23 +1,32 @@
 import atproto_client
 from ssky.post_data_list import PostDataList
 from ssky.ssky_session import ssky_client
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, get_http_status_from_exception, ErrorResult
-from typing import Union
+from ssky.result import (
+    AtProtocolSskyError,
+    SessionError,
+    InvalidUriError,
+    NotFoundError,
+    OperationFailedError
+)
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid
 
-def unrepost(post, **kwargs) -> Union[ErrorResult, PostDataList]:
-    if is_joined_uri_cid(post):
-        source_uri, source_cid = disjoin_uri_cid(post)
+def unrepost(target, **kwargs) -> PostDataList:
+    if is_joined_uri_cid(target):
+        source_uri, source_cid = disjoin_uri_cid(target)
     else:
-        source_uri = post
+        source_uri = target
         source_cid = None
 
     try:
-        client = ssky_client()
-        if client is None:
-            return ErrorResult("No valid session available", 401)
+        current_session = ssky_client()
+        if current_session is None:
+            raise SessionError()
+        
+        if not target or target.strip() == "":
+            raise InvalidUriError()
         
         post_data_list = PostDataList()
-        sources = client.get_posts([source_uri])
+        sources = current_session.get_posts([source_uri])
         repost_uri = None
         for source_post in sources.posts:
             if source_post.uri == source_uri and (source_cid is None or source_post.cid == source_cid):
@@ -26,23 +35,12 @@ def unrepost(post, **kwargs) -> Union[ErrorResult, PostDataList]:
                 break
 
         if repost_uri is None:
-            return ErrorResult("Post not found", 404)
+            raise NotFoundError("Post")
 
-        status = client.unrepost(repost_uri)
+        status = current_session.unrepost(repost_uri)
         if status is False:
-            return ErrorResult("Failed to unrepost", 500)
+            raise OperationFailedError("unrepost")
 
         return post_data_list
-    except atproto_client.exceptions.LoginRequiredError as e:
-        return ErrorResult(str(e), 401)
-        
     except atproto_client.exceptions.AtProtocolError as e:
-        http_code = get_http_status_from_exception(e)
-        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-            message = e.response.content.message
-        elif str(e) is not None and len(str(e)) > 0:
-            message = str(e)
-        else:
-            message = e.__class__.__name__
-        
-        return ErrorResult(message, http_code)
+        raise AtProtocolSskyError(e) from e

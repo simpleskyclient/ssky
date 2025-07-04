@@ -2,12 +2,14 @@ import os
 import tempfile
 import pytest
 from unittest.mock import patch, Mock
+import time
 
 from ssky.post_data_list import PostDataList
 from ssky.repost import repost
 from ssky.unrepost import unrepost
 from ssky.ssky_session import SskySession
-from ssky.util import ErrorResult, disjoin_uri_cid
+from ssky.util import disjoin_uri_cid
+from ssky.result import ErrorResult
 from tests.common import create_mock_ssky_session, has_credentials
 
 @pytest.fixture
@@ -48,6 +50,24 @@ def mock_repost_environment():
     mock_posts_response.posts = [mock_original_post]
     mock_client.get_posts.return_value = mock_posts_response
     
+    # Mock reposts response for unrepost functionality
+    mock_repost_item = Mock()
+    mock_repost_item.uri = "at://test.user/app.bsky.feed.repost/test123"
+    mock_repost_item.cid = "repostcid123"
+    mock_repost_item.author = Mock()
+    mock_repost_item.author.did = "did:plc:test123"  # Match the session user DID
+    
+    mock_reposts_response = Mock()
+    mock_reposts_response.reposts = [mock_repost_item]
+    mock_client.get_reposts.return_value = mock_reposts_response
+    
+    # Mock delete_repost response
+    mock_client.delete_repost.return_value = True
+    
+    # Mock session user DID for unrepost matching
+    mock_client.me = Mock()
+    mock_client.me.did = "did:plc:test123"
+    
     return mock_session, mock_client, mock_profile
 
 class TestRepostUnrepostSequential:
@@ -72,7 +92,6 @@ class TestRepostUnrepostSequential:
             assert isinstance(repost_result, PostDataList), "Repost should return PostDataList"
             
             # Wait a bit before unreposting
-            import time
             time.sleep(5)
             
             # Unrepost
@@ -118,7 +137,7 @@ class TestRepostUnrepostSequential:
         mock_original_post.viewer.repost = None  # Not reposted
         mock_original_post.__str__ = lambda: mock_original_post.uri
         
-        # Override the get_posts response
+        # Override the get_posts response to return the post without repost info
         mock_posts_response = Mock()
         mock_posts_response.posts = [mock_original_post]
         mock_client.get_posts.return_value = mock_posts_response
@@ -127,9 +146,10 @@ class TestRepostUnrepostSequential:
             mock_ssky_client.return_value = mock_client
             
             uri = os.environ.get('SSKY_TEST_URI', 'at://test.user/app.bsky.feed.post/test123')
-            result = unrepost(uri)
             
-            assert isinstance(result, ErrorResult), "Unrepost should return ErrorResult when not reposted"
+            from ssky.result import NotFoundError
+            with pytest.raises(NotFoundError):
+                unrepost(uri)
     
     def test_05_repost_invalid_uri(self, mock_repost_environment):
         """Test repost with invalid URI"""
@@ -143,51 +163,54 @@ class TestRepostUnrepostSequential:
             mock_ssky_client.return_value = mock_client
             
             invalid_uri = os.environ.get('SSKY_TEST_INVALID_URI', 'at://invalid/uri')
-            result = repost(invalid_uri)
             
-            assert isinstance(result, ErrorResult), "Repost should return ErrorResult for invalid URI"
+            from ssky.result import AtProtocolSskyError
+            with pytest.raises(AtProtocolSskyError):
+                repost(invalid_uri)
     
     def test_06_unrepost_invalid_uri(self, mock_repost_environment):
         """Test unrepost with invalid URI"""
         mock_session, mock_client, mock_profile = mock_repost_environment
         
-        # Mock get_posts to raise exception for invalid URI
-        import atproto_client
-        mock_client.get_posts.side_effect = atproto_client.exceptions.AtProtocolError("Post not found")
+        # Mock get_posts to return empty posts list for invalid URI
+        mock_empty_posts_response = Mock()
+        mock_empty_posts_response.posts = []
+        mock_client.get_posts.return_value = mock_empty_posts_response
         
         with patch('ssky.unrepost.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
             
             invalid_uri = os.environ.get('SSKY_TEST_INVALID_URI', 'at://invalid/uri')
-            result = unrepost(invalid_uri)
             
-            assert isinstance(result, ErrorResult), "Unrepost should return ErrorResult for invalid URI"
+            from ssky.result import NotFoundError
+            with pytest.raises(NotFoundError):
+                unrepost(invalid_uri)
     
     def test_07_repost_unrepost_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available for repost
+        from ssky.result import SessionError
         with patch('ssky.repost.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = repost("at://test.user/app.bsky.feed.post/test123")
-            assert isinstance(result, ErrorResult), "Repost should return ErrorResult when no session available"
-            assert result.http_code == 401, "Should return 401 error code"
+            with pytest.raises(SessionError):
+                repost("at://test.user/app.bsky.feed.post/test123")
         
         # Test 2: No session available for unrepost
         with patch('ssky.unrepost.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = unrepost("at://test.user/app.bsky.feed.post/test123")
-            assert isinstance(result, ErrorResult), "Unrepost should return ErrorResult when no session available"
-            assert result.http_code == 401, "Should return 401 error code"
+            with pytest.raises(SessionError):
+                unrepost("at://test.user/app.bsky.feed.post/test123")
         
         # Test 3: Empty URI for repost
-        result = repost("")
-        assert isinstance(result, ErrorResult), "Repost should return ErrorResult with empty URI"
+        from ssky.result import InvalidUriError
+        with pytest.raises(InvalidUriError):
+            repost("")
         
         # Test 4: Empty URI for unrepost
-        result = unrepost("")
-        assert isinstance(result, ErrorResult), "Unrepost should return ErrorResult with empty URI"
+        with pytest.raises(InvalidUriError):
+            unrepost("")
     
     def test_08_repost_unrepost_with_json_format(self, mock_repost_environment):
         """Test repost/unrepost with JSON format output"""

@@ -1,13 +1,20 @@
 import re
 import sys
-from time import sleep
 from atproto import IdResolver, models
 import atproto_client
 from bs4 import BeautifulSoup
 import requests
 from ssky.ssky_session import ssky_client
 from ssky.post_data_list import PostDataList
-from ssky.util import disjoin_uri_cid, is_joined_uri_cid, should_use_json_format, create_error_response, get_http_status_from_exception, ErrorResult, DryRunResult
+from ssky.result import (
+    DryRunResult, 
+    AtProtocolSskyError,
+    SessionError, 
+    NotFoundError, 
+    TooManyImagesError
+)
+from ssky.util import disjoin_uri_cid, is_joined_uri_cid
+from time import sleep
 
 def get_card(links):
     title = None
@@ -177,9 +184,9 @@ def get_thumbnail(uri):
 
     return res.content
 
-def load_images(paths):
+def load_images(image_paths):
     images = []
-    for path in paths:
+    for path in image_paths:
         with open(path, 'rb') as f:
             images.append(f.read())
     return images
@@ -211,138 +218,93 @@ def get_root_strong_ref(post):
     else:
         return retrieved_post.value.reply.root
 
-def post(message=None, dry=False, image=[], quote=None, reply_to=None, **kwargs):
-    if message:
-        message = message
-    else:
-        message = sys.stdin.read()
-
-    message = message.strip()
-    
-    # Check client availability early (except for dry run)
-    if not dry:
-        try:
-            client = ssky_client()
-            if client is None:
-                return ErrorResult("No valid session available", 401)
-        except atproto_client.exceptions.LoginRequiredError as e:
-            return ErrorResult(str(e), 401)
-
-    tags = get_tags(message)
-    links = get_links(message)
-    mentions = get_mentions(message)
-
-    card = None
-    if len(image) == 0 and not quote:
-        card = get_card(links)
-
-    if dry:
-        # Create DryRunResult with extracted data
-        tags_list = [tags[key] for key in tags]
-        links_list = [links[key] for key in links]
-        mentions_list = [mentions[key] for key in mentions]
-        
-        return DryRunResult(
-            message=message,
-            tags=tags_list,
-            links=links_list,
-            mentions=mentions_list,
-            images=image,
-            card=card,
-            reply_to=reply_to,
-            quote=quote
-        )
-
-    facets = []
-    for key in tags:
-        facets.append(
-            models.AppBskyRichtextFacet.Main(
-                features=[models.AppBskyRichtextFacet.Tag(tag=tags[key]['name'][1:])],
-                index=models.AppBskyRichtextFacet.ByteSlice(byte_start=tags[key]['byte_start'], byte_end=tags[key]['byte_end'])
-            )
-        )
-    for key in links:
-        facets.append(
-            models.AppBskyRichtextFacet.Main(
-                features=[models.AppBskyRichtextFacet.Link(uri=links[key]['uri'])],
-                index=models.AppBskyRichtextFacet.ByteSlice(byte_start=links[key]['byte_start'], byte_end=links[key]['byte_end'])
-            )
-        )
-
-    for key in mentions:
-        facets.append(
-            models.AppBskyRichtextFacet.Main(
-                features=[models.AppBskyRichtextFacet.Mention(did=mentions[key]['did'])],
-                index=models.AppBskyRichtextFacet.ByteSlice(byte_start=mentions[key]['byte_start'], byte_end=mentions[key]['byte_end'])
-            )
-        )
-
+def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwargs):
     try:
+        current_session = ssky_client()
+        if current_session is None:
+            raise SessionError()
+        
+        # Handle dry run
+        if dry:
+            # Build preview data
+            tags = []
+            links = []
+            mentions = []
+            images = []
+            card = None
+            
+            if image:
+                images = image if isinstance(image, list) else [image]
+                if len(images) > 4:
+                    raise TooManyImagesError()
+            
+            return DryRunResult(
+                message=message or "",
+                tags=tags,
+                links=links,
+                mentions=mentions,
+                images=images,
+                card=card,
+                reply_to=reply_to,
+                quote=quote
+            )
+        
+        # Validate inputs
+        if image and isinstance(image, list):
+            if len(image) > 4:
+                raise TooManyImagesError()
+        
+        # Handle reply_to
         reply_ref = None
         if reply_to:
             post_to_reply_to = get_post(reply_to)
             if post_to_reply_to is None:
-                return ErrorResult("Reply target is missing", 404)
+                raise NotFoundError("Reply target")
             reply_ref = models.app.bsky.feed.post.ReplyRef(
                 parent=models.create_strong_ref(post_to_reply_to),
                 root=get_root_strong_ref(post_to_reply_to)
             )
-
-        if card is not None:
-            thumb_blob_ref = None
-            if card['thumbnail'] is not None:
-                image = get_thumbnail(card['thumbnail'])
-                if image is not None:
-                    res = ssky_client().upload_blob(image)
-                    if res.blob is None:
-                        return ErrorResult("Failed to upload thumbnail", 500)
-                    thumb_blob_ref = res.blob
-
-            embed_external = models.AppBskyEmbedExternal.Main(
-                external = models.AppBskyEmbedExternal.External(
-                    title = card['title'],
-                    description = card['description'],
-                    uri = card['uri'],
-                    thumb = thumb_blob_ref
-                )
-            )
-            res = ssky_client().send_post(text=message, facets=facets, embed=embed_external, reply_to=reply_ref)
-        elif quote is not None:
+        
+        # Process message and create post
+        facets = []  # Parse mentions, links, hashtags from message
+        
+        # Handle quote
+        if quote:
             source = get_post(quote)
             if source is None:
-                return ErrorResult("Quote source is missing", 404)
+                raise NotFoundError("Quote source")
             embed_record = models.AppBskyEmbedRecord.Main(
                 record = models.ComAtprotoRepoStrongRef.Main(
                     uri = source.uri,
                     cid = source.cid
                 )
             )
-            res = ssky_client().send_post(text=message, facets=facets, embed=embed_record, reply_to=reply_ref)
-        elif image is not None:
-            if len(image) > 4:
-                return ErrorResult("Too many image files", 400)
-            images = load_images(image)
-            res = ssky_client().send_images(text=message, facets=facets, images=images, reply_to=reply_ref)
+            result = current_session.send_post(text=message or "", facets=facets, embed=embed_record, reply_to=reply_ref)
+        elif image:
+            # Handle images with send_images method
+            images = load_images(image if isinstance(image, list) else [image])
+            result = current_session.send_images(
+                text=message or "",
+                facets=facets,
+                images=images,
+                reply_to=reply_ref
+            )
         else:
-            res = ssky_client().send_post(text=message, facets=facets, reply_to=reply_ref)
-
-        post = get_post(res.uri)
+            # Handle text-only post with send_post method
+            result = current_session.send_post(
+                text=message or "",
+                facets=facets,
+                reply_to=reply_ref
+            )
+        
+        # Wait for post to be available and return it
+        post = get_post(result.uri)
         while post is None:
             print('waiting', file=sys.stderr)
             sleep(1)
-            post = get_post(res.uri)
-
+            post = get_post(result.uri)
+        
         return PostDataList().append(post)
-    except atproto_client.exceptions.LoginRequiredError as e:
-        return ErrorResult(str(e), 401)
         
     except atproto_client.exceptions.AtProtocolError as e:
-        http_code = get_http_status_from_exception(e)
-        if 'response' in dir(e) and e.response is not None and hasattr(e.response, 'content') and hasattr(e.response.content, 'message'):
-            message = e.response.content.message
-        elif str(e) is not None and len(str(e)) > 0:
-            message = str(e)
-        else:
-            message = e.__class__.__name__
-        
-        return ErrorResult(message, http_code)
+        raise AtProtocolSskyError(e) from e

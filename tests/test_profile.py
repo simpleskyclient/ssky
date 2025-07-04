@@ -5,7 +5,7 @@ from unittest.mock import patch, Mock
 
 from ssky.profile import profile
 from ssky.profile_list import ProfileList
-from ssky.util import ErrorResult
+from ssky.result import ErrorResult
 from tests.common import (
     create_mock_ssky_session, has_credentials
 )
@@ -102,9 +102,10 @@ class TestProfileSequential:
             mock_ssky_client.return_value = mock_client
             
             invalid_handle = os.environ.get('SSKY_TEST_INVALID_HANDLE', 'invalid.handle.test')
-            result = profile(invalid_handle)
             
-            assert isinstance(result, ErrorResult), "Profile with invalid handle should return ErrorResult"
+            from ssky.result import AtProtocolSskyError
+            with pytest.raises(AtProtocolSskyError):
+                profile(invalid_handle)
         
     
     def test_04_profile_invalid_did(self, mock_profile_environment):
@@ -120,25 +121,27 @@ class TestProfileSequential:
             mock_ssky_client.return_value = mock_client
             
             invalid_did = os.environ.get('SSKY_TEST_INVALID_DID', 'did:plc:invalid123')
-            result = profile(invalid_did)
             
-            assert isinstance(result, ErrorResult), "Profile with invalid DID should return ErrorResult"
+            from ssky.result import AtProtocolSskyError
+            with pytest.raises(AtProtocolSskyError):
+                profile(invalid_did)
         
     
     def test_05_profile_error_scenarios(self):
         """Test error handling scenarios"""
         
         # Test 1: No session available (ssky_client returns None)
+        from ssky.result import SessionError
         with patch('ssky.profile.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = None
             
-            result = profile("test.bsky.social")
-            assert isinstance(result, ErrorResult), "Profile should return ErrorResult when no session available"
-            assert result.http_code == 401, "Profile should return 401 error code"
+            with pytest.raises(SessionError):
+                profile("test.bsky.social")
         
         # Test 2: Empty identifier
-        result = profile("")
-        assert isinstance(result, ErrorResult), "Profile should return ErrorResult with empty identifier"
+        from ssky.result import AtProtocolSskyError
+        with pytest.raises(AtProtocolSskyError):
+            profile("")
         
     
     def test_06_profile_with_json_format(self, mock_profile_environment, mock_profile_response):
@@ -167,7 +170,7 @@ class TestProfileSequential:
         with patch('ssky.profile.ssky_client') as mock_ssky_client:
             mock_ssky_client.side_effect = atproto_client.exceptions.LoginRequiredError("Login required")
             
-            result = profile("test.bsky.social")
-            assert isinstance(result, ErrorResult), "Profile should return ErrorResult on LoginRequiredError"
-            assert result.http_code == 401, "Profile should return 401 error code"
+            from ssky.result import AtProtocolSskyError
+            with pytest.raises(AtProtocolSskyError):
+                profile("test.bsky.social")
         
