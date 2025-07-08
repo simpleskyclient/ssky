@@ -75,6 +75,30 @@ def ssky_get(
         limit: Number of posts to retrieve (default: 25, same as ssky command)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with structured post data:
+        Success:
+        {
+            "status": "success",
+            "data": [
+                {
+                    "uri": "string",
+                    "author": "string", 
+                    "content": "string",
+                    "created_at": "string",
+                    "reply_count": "number",
+                    "repost_count": "number",
+                    "like_count": "number"
+                }
+            ]
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "get"]
     
@@ -82,7 +106,7 @@ def ssky_get(
     args.extend(["-N", str(limit)])
     
     # Always use simple-json for MCP
-    args.append("-S")
+    args.append("--simple-json")
     
     # Add delimiter if specified
     if delimiter:
@@ -146,6 +170,26 @@ def ssky_post(
         reply_to_uri: URI of post to reply to (at://...)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with post result:
+        Success:
+        {
+            "status": "success",
+            "data": {
+                "uri": "string",
+                "cid": "string",
+                "message": "string",
+                "created_at": "string",
+                "preview": "boolean (for dry_run)"
+            }
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "post"]
     
@@ -232,6 +276,30 @@ def ssky_search(
         until: Until timestamp (ex. 2099-12-31T23:59:59Z, "today", "yesterday")
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with search results:
+        Success:
+        {
+            "status": "success",
+            "data": [
+                {
+                    "uri": "string",
+                    "author": "string",
+                    "content": "string",
+                    "created_at": "string",
+                    "reply_count": "number",
+                    "repost_count": "number",
+                    "like_count": "number"
+                }
+            ]
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "search", query, "--limit", str(limit)]
     
@@ -296,6 +364,29 @@ def ssky_profile(handle: str, delimiter: str = "", output_dir: str = "") -> str:
         handle: User handle, DID, or "myself" (e.g., user.bsky.social)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with profile information:
+        Success:
+        {
+            "status": "success",
+            "data": {
+                "handle": "string",
+                "display_name": "string",
+                "description": "string",
+                "followers_count": "number",
+                "following_count": "number",
+                "posts_count": "number",
+                "avatar": "string",
+                "banner": "string"
+            }
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "profile", handle]
     
@@ -349,6 +440,29 @@ def ssky_user(query: str, limit: int = 25, delimiter: str = "", output_dir: str 
         limit: Number of results to return (default: 25, same as ssky command)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with user search results:
+        Success:
+        {
+            "status": "success",
+            "data": [
+                {
+                    "handle": "string",
+                    "display_name": "string",
+                    "description": "string",
+                    "followers_count": "number",
+                    "following_count": "number",
+                    "avatar": "string"
+                }
+            ]
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "user", query, "--limit", str(limit)]
     
@@ -401,6 +515,25 @@ def ssky_follow(handle: str, delimiter: str = "", output_dir: str = "") -> str:
         handle: User handle, DID, or "myself" to follow
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with follow result:
+        Success:
+        {
+            "status": "success",
+            "data": {
+                "handle": "string",
+                "uri": "string",
+                "cid": "string",
+                "action": "follow"
+            }
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "follow", handle]
     
@@ -453,6 +586,24 @@ def ssky_unfollow(handle: str, delimiter: str = "", output_dir: str = "") -> str
         handle: User handle, DID, or "myself" to unfollow
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with unfollow result:
+        Success:
+        {
+            "status": "success",
+            "data": {
+                "handle": "string",
+                "uri": "string",
+                "action": "unfollow"
+            }
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "unfollow", handle]
     
@@ -505,6 +656,25 @@ def ssky_repost(post_uri: str, delimiter: str = "", output_dir: str = "") -> str
         post_uri: URI of the post to repost (at://...)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with repost result:
+        Success:
+        {
+            "status": "success",
+            "data": {
+                "uri": "string",
+                "cid": "string",
+                "post_uri": "string",
+                "action": "repost"
+            }
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "repost", post_uri]
     
@@ -557,6 +727,24 @@ def ssky_unrepost(post_uri: str, delimiter: str = "", output_dir: str = "") -> s
         post_uri: URI of the post to unrepost (at://...)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
+    
+    Returns:
+        JSON string with unrepost result:
+        Success:
+        {
+            "status": "success",
+            "data": {
+                "uri": "string",
+                "post_uri": "string",
+                "action": "unrepost"
+            }
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "unrepost", post_uri]
     
@@ -607,6 +795,24 @@ def ssky_delete(post_uri: str) -> str:
     
     Args:
         post_uri: URI of the post to delete (at://...)
+    
+    Returns:
+        JSON string with delete result:
+        Success:
+        {
+            "status": "success",
+            "data": {
+                "uri": "string",
+                "action": "delete",
+                "message": "Post deleted successfully"
+            }
+        }
+        Error:
+        {
+            "status": "error",
+            "message": "string",
+            "http_code": "number"
+        }
     """
     args = ["ssky", "delete", post_uri]
     
