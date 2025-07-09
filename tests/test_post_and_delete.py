@@ -1,14 +1,14 @@
 import os
 import tempfile
 import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, MagicMock
 from time import sleep
 
 from ssky.delete import delete
-from ssky.post import post
+from ssky.post import post, get_tags, get_links, get_mentions
 from ssky.post_data_list import PostDataList
 from ssky.util import join_uri_cid
-from ssky.result import ErrorResult
+from ssky.result import ErrorResult, DryRunResult
 from ssky.ssky_session import SskySession
 from tests.common import create_mock_ssky_session, has_credentials
 
@@ -63,7 +63,6 @@ class TestPostDeleteSequential:
     def test_01_post_dry_run(self):
         """Test dry run functionality without API calls"""
         # Test dry run - should not make API calls
-        from ssky.result import DryRunResult
         message = os.environ.get('SSKY_TEST_POST_TEXT', 'Test post message')
         image = os.environ.get('SSKY_TEST_POST_IMAGE')
         
@@ -219,3 +218,214 @@ class TestPostDeleteSequential:
         from ssky.result import SskyError
         with pytest.raises(SskyError):
             delete("invalid://uri")
+
+    def test_05_post_facets_dry_run_hashtags(self):
+        """Test dry run with hashtags extracts tags properly"""
+        message = "Testing #hashtag extraction in #dryrun mode"
+        
+        dry_result = post(message=message, dry=True)
+        
+        assert isinstance(dry_result, DryRunResult)
+        assert dry_result.message == message
+        assert len(dry_result.tags) == 2
+        assert '#hashtag' in dry_result.tags
+        assert '#dryrun' in dry_result.tags
+        assert len(dry_result.links) == 0
+        assert len(dry_result.mentions) == 0
+
+    def test_06_post_facets_dry_run_urls(self):
+        """Test dry run with URLs extracts links and cards properly"""
+        message = "Check out https://www.example.com/ for more info"
+        
+        # Mock get_card to avoid actual HTTP requests
+        with patch('ssky.post.get_card') as mock_get_card:
+            mock_get_card.return_value = [{
+                'title': 'Example Domain',
+                'description': 'This domain is for use in examples',
+                'thumbnail': None,
+                'uri': 'https://www.example.com/'
+            }]
+            
+            dry_result = post(message=message, dry=True)
+            
+            assert isinstance(dry_result, DryRunResult)
+            assert dry_result.message == message
+            assert len(dry_result.links) == 1
+            assert 'https://www.example.com/' in dry_result.links
+            assert dry_result.card is not None
+            assert dry_result.card['title'] == 'Example Domain'
+            assert len(dry_result.tags) == 0
+            assert len(dry_result.mentions) == 0
+
+    def test_07_post_facets_dry_run_mentions(self):
+        """Test dry run with mentions extracts mentions properly"""
+        # Mock the IdResolver to avoid actual network calls
+        with patch('ssky.post.IdResolver') as mock_resolver_class:
+            mock_resolver = MagicMock()
+            mock_handle_resolver = MagicMock()
+            mock_handle_resolver.resolve.return_value = "did:plc:test123"
+            mock_resolver.handle = mock_handle_resolver
+            mock_resolver_class.return_value = mock_resolver
+            
+            message = "Hello @test.bsky.social, how are you?"
+            
+            dry_result = post(message=message, dry=True)
+            
+            assert isinstance(dry_result, DryRunResult)
+            assert dry_result.message == message
+            assert len(dry_result.mentions) == 1
+            assert '@test.bsky.social' in dry_result.mentions
+            assert len(dry_result.tags) == 0
+            assert len(dry_result.links) == 0
+
+    def test_08_post_facets_dry_run_all_together(self):
+        """Test dry run with URLs, hashtags, and mentions all together"""
+        # Mock dependencies
+        with patch('ssky.post.IdResolver') as mock_resolver_class:
+            mock_resolver = MagicMock()
+            mock_handle_resolver = MagicMock()
+            mock_handle_resolver.resolve.return_value = "did:plc:test123"
+            mock_resolver.handle = mock_handle_resolver
+            mock_resolver_class.return_value = mock_resolver
+            
+            with patch('ssky.post.get_card') as mock_get_card:
+                mock_get_card.return_value = [{
+                    'title': 'Example Domain',
+                    'description': 'This domain is for use in examples',
+                    'thumbnail': None,
+                    'uri': 'https://www.example.com/'
+                }]
+                
+                message = "Check out https://www.example.com/ #awesome @test.bsky.social! #bluesky"
+                
+                dry_result = post(message=message, dry=True)
+                
+                assert isinstance(dry_result, DryRunResult)
+                assert dry_result.message == message
+                
+                # Check all facets were extracted
+                assert len(dry_result.links) == 1
+                assert 'https://www.example.com/' in dry_result.links
+                assert len(dry_result.tags) == 2
+                assert '#awesome' in dry_result.tags
+                assert '#bluesky' in dry_result.tags
+                assert len(dry_result.mentions) == 1
+                assert '@test.bsky.social' in dry_result.mentions
+                assert dry_result.card is not None
+
+    def test_09_post_facets_processing_with_mock(self):
+        """Test actual post with facets processing using mocked client"""
+        if not has_credentials():
+            pytest.skip("No credentials available")
+        
+        # Create mock environment
+        mock_session, mock_client, mock_profile = create_mock_ssky_session()
+        
+        # Mock dependencies
+        with patch('ssky.post.IdResolver') as mock_resolver_class:
+            mock_resolver = MagicMock()
+            mock_handle_resolver = MagicMock()
+            mock_handle_resolver.resolve.return_value = "did:plc:test123"
+            mock_resolver.handle = mock_handle_resolver
+            mock_resolver_class.return_value = mock_resolver
+            
+            with patch('ssky.post.get_card') as mock_get_card:
+                mock_get_card.return_value = [{
+                    'title': 'Example Domain',
+                    'description': 'This domain is for use in examples',
+                    'thumbnail': None,
+                    'uri': 'https://www.example.com/'
+                }]
+                
+                # Mock the retrieved post for verification
+                mock_retrieved_post = Mock()
+                mock_retrieved_post.uri = "at://test.user/app.bsky.feed.post/test123"
+                mock_retrieved_post.cid = "testcid123"
+                mock_retrieved_post.author = Mock()
+                mock_retrieved_post.author.did = "did:plc:test123"
+                mock_retrieved_post.author.handle = "test.bsky.social"
+                mock_retrieved_post.record = Mock()
+                mock_retrieved_post.record.text = "Test message with #hashtag https://www.example.com/ @test.bsky.social"
+                
+                mock_get_posts_response = Mock()
+                mock_get_posts_response.posts = [mock_retrieved_post]
+                mock_client.get_posts.return_value = mock_get_posts_response
+                
+                with patch('ssky.post.ssky_client') as mock_ssky_client:
+                    mock_ssky_client.return_value = mock_client
+                    
+                    message = "Test message with #hashtag https://www.example.com/ @test.bsky.social"
+                    result = post(message=message, dry=False)
+                    
+                    assert isinstance(result, PostDataList)
+                    
+                    # Verify that send_post was called with facets
+                    mock_client.send_post.assert_called_once()
+                    call_args = mock_client.send_post.call_args
+                    
+                    # Check that facets were passed
+                    assert 'facets' in call_args.kwargs
+                    facets = call_args.kwargs['facets']
+                    assert len(facets) >= 3  # At least hashtag, link, and mention
+
+    def test_10_get_tags_function(self):
+        """Test the get_tags helper function"""
+        # Test message with hashtags
+        message = "This is a #test message with #multiple #hashtags"
+        tags = get_tags(message)
+        
+        assert len(tags) == 3
+        tag_names = [item['name'] for item in tags.values()]
+        assert '#test' in tag_names
+        assert '#multiple' in tag_names
+        assert '#hashtags' in tag_names
+        
+        # Test message without hashtags
+        message_no_tags = "This message has no hashtags"
+        tags_empty = get_tags(message_no_tags)
+        assert len(tags_empty) == 0
+
+    def test_11_get_links_function(self):
+        """Test the get_links helper function"""
+        # Test message with URLs
+        message = "Check out https://example.com and http://test.org"
+        links = get_links(message)
+        
+        assert len(links) == 2
+        link_uris = [item['uri'] for item in links.values()]
+        assert 'https://example.com' in link_uris
+        assert 'http://test.org' in link_uris
+        
+        # Test message without URLs
+        message_no_links = "This message has no links"
+        links_empty = get_links(message_no_links)
+        assert len(links_empty) == 0
+
+    def test_12_get_mentions_function(self):
+        """Test the get_mentions helper function"""
+        # Mock the IdResolver to avoid actual network calls
+        with patch('ssky.post.IdResolver') as mock_resolver_class:
+            mock_resolver = MagicMock()
+            mock_handle_resolver = MagicMock()
+            mock_handle_resolver.resolve.return_value = "did:plc:test123"
+            mock_resolver.handle = mock_handle_resolver
+            mock_resolver_class.return_value = mock_resolver
+            
+            # Test message with mentions
+            message = "Hello @user.bsky.social and @test.bsky.social"
+            mentions = get_mentions(message)
+            
+            assert len(mentions) == 2
+            mention_handles = [item['handle'] for item in mentions.values()]
+            assert '@user.bsky.social' in mention_handles
+            assert '@test.bsky.social' in mention_handles
+            
+            # Verify DIDs were resolved
+            mention_dids = [item['did'] for item in mentions.values()]
+            assert all(did == "did:plc:test123" for did in mention_dids)
+        
+        # Test message without mentions
+        message_no_mentions = "This message has no mentions"
+        mentions_empty = get_mentions(message_no_mentions)
+        assert len(mentions_empty) == 0
+

@@ -248,18 +248,42 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwarg
         if current_session is None:
             raise SessionError()
         
-        # Handle dry run
-        if dry:
-            # Build preview data
+        # Process message and extract facets
+        if message:
+            tags_dict = get_tags(message)
+            links_dict = get_links(message)
+            mentions_dict = get_mentions(message)
+            
+            # Extract tag names only
+            tags = [item['name'] for item in tags_dict.values()]
+            # Extract link URIs only
+            links = [item['uri'] for item in links_dict.values()]
+            # Extract mention handles only
+            mentions = [item['handle'] for item in mentions_dict.values()]
+            
+            # Get card info for links
+            card = None
+            if links_dict:
+                cards = get_card(links_dict, warnings)
+                if cards:
+                    card = cards[0]  # Use the first card for now
+        else:
+            tags_dict = {}
+            links_dict = {}
+            mentions_dict = {}
             tags = []
             links = []
             mentions = []
-            images = []
             card = None
+        
+        # Handle dry run
+        if dry:
+            # Build preview data
+            images_list = []
             
             if image:
-                images = image if isinstance(image, list) else [image]
-                if len(images) > 4:
+                images_list = image if isinstance(image, list) else [image]
+                if len(images_list) > 4:
                     raise TooManyImagesError()
             
             return DryRunResult(
@@ -267,7 +291,7 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwarg
                 tags=tags,
                 links=links,
                 mentions=mentions,
-                images=images,
+                images=images_list,
                 card=card,
                 reply_to=reply_to,
                 quote=quote
@@ -289,8 +313,42 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwarg
                 root=get_root_strong_ref(post_to_reply_to)
             )
         
-        # Process message and create post
-        facets = []  # Parse mentions, links, hashtags from message
+        # Build facets for atproto
+        facets = []
+        
+        # Add link facets
+        for link_data in links_dict.values():
+            facet = models.AppBskyRichtextFacet.Main(
+                features=[models.AppBskyRichtextFacet.Link(uri=link_data['uri'])],
+                index=models.AppBskyRichtextFacet.ByteSlice(
+                    byte_start=link_data['byte_start'],
+                    byte_end=link_data['byte_end']
+                )
+            )
+            facets.append(facet)
+        
+        # Add tag facets
+        for tag_data in tags_dict.values():
+            facet = models.AppBskyRichtextFacet.Main(
+                features=[models.AppBskyRichtextFacet.Tag(tag=tag_data['name'][1:])],  # Remove # prefix
+                index=models.AppBskyRichtextFacet.ByteSlice(
+                    byte_start=tag_data['byte_start'],
+                    byte_end=tag_data['byte_end']
+                )
+            )
+            facets.append(facet)
+        
+        # Add mention facets
+        for mention_data in mentions_dict.values():
+            if 'did' in mention_data and mention_data['did']:
+                facet = models.AppBskyRichtextFacet.Main(
+                    features=[models.AppBskyRichtextFacet.Mention(did=mention_data['did'])],
+                    index=models.AppBskyRichtextFacet.ByteSlice(
+                        byte_start=mention_data['byte_start'],
+                        byte_end=mention_data['byte_end']
+                    )
+                )
+                facets.append(facet)
         
         # Handle quote
         if quote:
