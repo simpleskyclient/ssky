@@ -861,7 +861,7 @@ def main():
     
     logger.info(f"Starting ssky MCP server version {get_mcp_server_version()}")
     try:
-        mcp.run()
+        mcp.run(show_banner=False)
     except KeyboardInterrupt:
         logger.info("MCP server stopped by user")
         pass
