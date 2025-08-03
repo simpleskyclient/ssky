@@ -90,6 +90,12 @@ def parse():
 
 def execute(subcommand, args) -> bool:
     try:
+        if subcommand == 'post' and hasattr(args, 'message') and args.message is None:
+            if not sys.stdin.isatty():
+                stdin_content = sys.stdin.read().strip()
+                if stdin_content:
+                    args.message = stdin_content
+            
         module = import_module(f'.{subcommand}', f'{__package__}')
         func = getattr(module, f'{subcommand}')
         result = func(**vars(args))
