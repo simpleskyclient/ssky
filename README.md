@@ -92,8 +92,65 @@ ssky get --text
 # Get full JSON output
 ssky get --json
 
+# Get simplified JSON with facets metadata (ideal for programmatic access)
+ssky get --simple-json
+
 # Save posts to files
 ssky get --output ./posts
+```
+
+#### Facets Metadata in Simple-JSON
+
+The `--simple-json` format includes structured facets metadata for rich text features:
+
+- **links**: URLs with byte positions and text
+- **mentions**: User mentions with handles, DIDs, and byte positions
+- **tags**: Hashtags with byte positions and text
+
+Example output:
+```json
+{
+  "status": "success",
+  "data": [{
+    "uri": "at://...",
+    "cid": "...",
+    "author": {
+      "did": "did:plc:...",
+      "handle": "user.bsky.social",
+      "display_name": "User Name",
+      "avatar": "https://..."
+    },
+    "text": "Check out https://example.com @user.bsky.social #bluesky",
+    "created_at": "2024-01-01T00:00:00.000Z",
+    "facets": {
+      "links": [
+        {
+          "url": "https://example.com",
+          "byte_start": 10,
+          "byte_end": 30,
+          "text": "https://example.com"
+        }
+      ],
+      "mentions": [
+        {
+          "handle": "user.bsky.social",
+          "did": "did:plc:...",
+          "byte_start": 31,
+          "byte_end": 49,
+          "text": "@user.bsky.social"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "bluesky",
+          "byte_start": 50,
+          "byte_end": 58,
+          "text": "#bluesky"
+        }
+      ]
+    }
+  }]
+}
 ```
 
 ### Useful Examples
