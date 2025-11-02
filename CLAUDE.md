@@ -167,6 +167,26 @@ This project has two repositories:
 
 **Always confirm repository ownership before GitHub operations** using MCP GitHub tools or `gh` command.
 
+## Git Commit Message Policy
+
+**Commit messages should be a single-line summary only. Do NOT include:**
+- Multi-line body text
+- "Generated with Claude Code" footer
+- "Co-Authored-By: Claude" footer
+- Emoji or decorative elements
+
+**Example**:
+```
+✅ GOOD: feat: add facets to simple-json output
+❌ BAD:  feat: add facets to simple-json output
+
+         All tests pass. Backward compatible.
+
+         🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+         Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
 ## Important Architectural Patterns
 
 ### 1. Dynamic Command Registration
