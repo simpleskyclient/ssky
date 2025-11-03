@@ -25,7 +25,18 @@
 		"vscode": {
 			"extensions": [
 				"anthropic.claude-code"
-			]
+			],
+			"settings": {
+				"cSpell.words": [
+					"cids",
+					"repost",
+					"reposted",
+					"unfollow",
+					"unfollowed",
+					"unrepost",
+					"unreposted"
+				]
+			}
 		}
 	}
 
