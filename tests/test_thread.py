@@ -131,31 +131,26 @@ class TestGetWithThreadSequential:
             assert mock_client.get_post_thread.called, "get_post_thread should be called"
 
     def test_02_get_timeline_with_thread_json_format(self, mock_thread_environment):
-        """Test get timeline with --thread and JSON format (should ignore --thread)"""
+        """Test get timeline with --thread and JSON format (should raise error)"""
         mock_session, mock_client, mock_profile, mock_post, mock_reply = mock_thread_environment
 
         with patch('ssky.get.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
 
-            from ssky.post_data_list import PostDataList
-            result = get(target=None, thread=True, format='json')
-
-            assert isinstance(result, PostDataList), "Get with --thread and JSON format should return PostDataList"
-            assert not mock_client.get_post_thread.called, "get_post_thread should NOT be called for JSON format"
+            from ssky.result import InvalidOptionCombinationError
+            with pytest.raises(InvalidOptionCombinationError):
+                get(target=None, thread=True, format='json')
 
     def test_03_get_timeline_with_thread_simple_json_format(self, mock_thread_environment):
-        """Test get timeline with --thread and simple_json format (should ignore --thread)"""
+        """Test get timeline with --thread and simple_json format (should raise error)"""
         mock_session, mock_client, mock_profile, mock_post, mock_reply = mock_thread_environment
 
         with patch('ssky.get.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
 
-            from ssky.post_data_list import PostDataList
-            result = get(target=None, thread=True, format='simple_json')
-
-            assert isinstance(result, PostDataList), "Get with --thread and simple_json format should return PostDataList"
-            # Reset mock before checking
-            mock_client.get_post_thread.reset_mock()
+            from ssky.result import InvalidOptionCombinationError
+            with pytest.raises(InvalidOptionCombinationError):
+                get(target=None, thread=True, format='simple_json')
 
     def test_04_get_author_feed_with_thread(self, mock_thread_environment):
         """Test get author feed with --thread option"""

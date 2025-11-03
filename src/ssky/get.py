@@ -6,7 +6,8 @@ from ssky.thread_data_list import ThreadDataList
 from ssky.result import (
     AtProtocolSskyError,
     SessionError,
-    InvalidActorError
+    InvalidActorError,
+    InvalidOptionCombinationError
 )
 from ssky.util import disjoin_uri_cid, is_joined_uri_cid
 
@@ -38,6 +39,10 @@ def get(target=None, limit=100, thread=False, thread_depth=10, thread_parent_hei
         if current_session is None:
             raise SessionError()
 
+        # Check for invalid option combination
+        if thread and format in ('json', 'simple_json'):
+            raise InvalidOptionCombinationError("--thread cannot be used with --json or --simple-json")
+
         # First, retrieve posts normally
         if target is None:
             # Get timeline
@@ -60,8 +65,8 @@ def get(target=None, limit=100, thread=False, thread_depth=10, thread_parent_hei
                 raise InvalidActorError()
             post_data_list = get_author_feed(current_session, actor, limit=limit)
 
-        # If --thread is specified and format is not json/simple_json, expand each post into threads
-        if thread and format not in ('json', 'simple_json'):
+        # If --thread is specified, expand each post into threads
+        if thread:
             thread_data_list = ThreadDataList()
 
             for item in post_data_list.items:

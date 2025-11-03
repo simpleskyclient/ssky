@@ -314,6 +314,12 @@ class InvalidUriError(SskyError):
         super().__init__(message, 400)
 
 
+class InvalidOptionCombinationError(SskyError):
+    """Invalid option combination errors."""
+    def __init__(self, message: str = "Invalid option combination"):
+        super().__init__(message, 400)
+
+
 # Error handling functions
 def get_http_status_from_exception(e) -> int:
     """Extract HTTP status code from exception.
