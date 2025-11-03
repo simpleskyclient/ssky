@@ -60,8 +60,14 @@ def search(q='*', author=None, since=None, until=None, limit=100, thread=False, 
         # If --thread is specified, expand each post into threads
         if thread:
             thread_data_list = ThreadDataList()
+            seen_uris = set()  # URIs already included in other threads
 
-            for item in post_data_list.items:
+            # Process in reverse order (oldest first) to prioritize parent posts
+            for item in reversed(post_data_list.items):
+                # Skip if this post is already part of another thread
+                if item.post.uri in seen_uris:
+                    continue
+
                 # Get thread for each post
                 thread_response = current_session.get_post_thread(
                     item.post.uri,
@@ -69,7 +75,15 @@ def search(q='*', author=None, since=None, until=None, limit=100, thread=False, 
                     parent_height=thread_parent_height
                 )
                 thread_data = ThreadData(thread_response)
+
+                # Mark all URIs in this thread as seen
+                for post, depth in thread_data.posts:
+                    seen_uris.add(post.uri)
+
                 thread_data_list.append(thread_data)
+
+            # Reverse to show newest first (matching search result order)
+            thread_data_list.threads.reverse()
 
             return thread_data_list
         else:

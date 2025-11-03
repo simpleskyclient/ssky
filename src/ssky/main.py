@@ -52,7 +52,7 @@ def parse():
     get_parser.add_argument('target', nargs='?', type=str, default=None, metavar='PARAM', help='URI(at://...), DID(did:...), handle, "myself", or none as timeline')
     get_parser.add_argument('--thread', action='store_true', help='Retrieve full thread for each post')
     get_parser.add_argument('--thread-depth', type=int, default=10, metavar='NUM', help='Maximum depth of thread replies to retrieve (default: 10)')
-    get_parser.add_argument('--thread-parent-height', type=int, default=0, metavar='NUM', help='Number of parent posts to retrieve (default: 0)')
+    get_parser.add_argument('--thread-parent-height', type=int, default=10, metavar='NUM', help='Number of parent posts to retrieve (default: 10)')
 
 
     login_parser = sp.add_parser('login', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Login')
@@ -79,7 +79,7 @@ def parse():
     search_parser.add_argument('-u', '--until', type=str, default=None, metavar='TIMESTAMP', help='Until timestamp (ex. 2099-12-31T23:59:59Z, 20991231235959, 20991231, "today", "yesterday")')
     search_parser.add_argument('--thread', action='store_true', help='Retrieve full thread for each post')
     search_parser.add_argument('--thread-depth', type=int, default=10, metavar='NUM', help='Maximum depth of thread replies to retrieve (default: 10)')
-    search_parser.add_argument('--thread-parent-height', type=int, default=0, metavar='NUM', help='Number of parent posts to retrieve (default: 0)')
+    search_parser.add_argument('--thread-parent-height', type=int, default=10, metavar='NUM', help='Number of parent posts to retrieve (default: 10)')
 
     unfollow_parser = sp.add_parser('unfollow', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Unfollow')
     unfollow_parser.add_argument('actor', type=str, metavar='NAME', help='Handle, DID, or "myself" to unfollow')
