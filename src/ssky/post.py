@@ -310,7 +310,362 @@ def get_root_strong_ref(post):
     else:
         return retrieved_post.value.reply.root
 
-def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwargs):
+# Thread splitting constants and functions
+THREAD_MAX_CHARS = 285  # Effective limit per post (excluding prefix and continuation marks)
+THREAD_PREFIX_TEMPLATE = "({i}/{total}) "
+THREAD_CONTINUATION_PREFIX = "..."
+THREAD_CONTINUATION_SUFFIX = "..."
+
+def calculate_thread_prefix_len(total_parts):
+    """Calculate maximum length of thread prefix for given total parts."""
+    max_prefix = THREAD_PREFIX_TEMPLATE.format(i=total_parts, total=total_parts)
+    return len(max_prefix)
+
+def find_best_split_point(text, start, target_end, all_facets):
+    """
+    Find optimal split point that doesn't break facets.
+
+    Args:
+        text: Full text being split
+        start: Start position of current part
+        target_end: Target end position (may need adjustment)
+        all_facets: List of all facet positions
+
+    Returns:
+        int: Character index for split (adjusted to safe boundary)
+    """
+    # 1. Check if target_end falls within a facet
+    for facet in all_facets:
+        if facet['start'] < target_end < facet['end']:
+            # Inside facet - must move back to facet start
+            target_end = facet['start']
+            break
+
+    # 2. Try sentence boundary
+    sentence_match = None
+    for match in re.finditer(r'[.!?]\s+', text[start:target_end]):
+        sentence_match = match
+    if sentence_match:
+        return start + sentence_match.end()
+
+    # 3. Try paragraph boundary
+    para_pos = text.rfind('\n\n', start, target_end)
+    if para_pos > start:
+        return para_pos + 2
+
+    # 4. Try word boundary
+    space_pos = text.rfind(' ', start, target_end)
+    if space_pos > start:
+        return space_pos + 1
+
+    # 5. Use target_end (already adjusted for facets)
+    return target_end
+
+def adjust_facets_for_part(original_text, part_start, part_end, facets_dict, prefix_len):
+    """
+    Adjust facet positions for a split part.
+
+    Args:
+        original_text: Original full text
+        part_start: Start position of this part in original text (char index)
+        part_end: End position of this part in original text (char index)
+        facets_dict: Original facets dictionary
+        prefix_len: Length of prefix string (with continuation marks)
+
+    Returns:
+        dict: Adjusted facets_dict with corrected positions
+    """
+    prefix_byte_len = byte_len(prefix_len)
+    part_text = original_text[part_start:part_end]
+
+    adjusted_dict = {}
+    for key, facet_data in facets_dict.items():
+        facet_start = facet_data['start']
+        facet_end = facet_data['end']
+
+        # Check if this facet is completely within this part
+        if part_start <= facet_start and facet_end <= part_end:
+            # Calculate new positions relative to part
+            new_start = facet_start - part_start
+            new_end = facet_end - part_start
+
+            # Calculate new byte positions
+            new_byte_start = byte_len(part_text[:new_start]) + prefix_byte_len
+            new_byte_end = byte_len(part_text[:new_end]) + prefix_byte_len
+
+            # Create adjusted facet data
+            new_facet_data = facet_data.copy()
+            new_facet_data['start'] = new_start
+            new_facet_data['end'] = new_end
+            new_facet_data['byte_start'] = new_byte_start
+            new_facet_data['byte_end'] = new_byte_end
+
+            # Use new position as key
+            new_key = f'{new_start:05d}'
+            adjusted_dict[new_key] = new_facet_data
+
+    return adjusted_dict
+
+def split_text_with_facets(text, links_dict, mentions_dict, tags_dict, max_chars=THREAD_MAX_CHARS):
+    """
+    Split text while preserving facets.
+
+    Args:
+        text: Original message text
+        links_dict: Links facets dictionary
+        mentions_dict: Mentions facets dictionary
+        tags_dict: Tags facets dictionary
+        max_chars: Max chars per part (excluding prefix and continuation marks)
+
+    Returns:
+        List[dict]: [
+            {
+                'text': str,  # Text with prefix and continuation marks
+                'links_dict': dict,
+                'mentions_dict': dict,
+                'tags_dict': dict
+            },
+            ...
+        ]
+
+    Raises:
+        TooLongForThreadError: If text would require 100+ posts
+    """
+    from ssky.result import TooLongForThreadError
+
+    # Merge all facets for boundary detection
+    all_facets = []
+    for facets_dict in [links_dict, mentions_dict, tags_dict]:
+        for facet_data in facets_dict.values():
+            all_facets.append({
+                'start': facet_data['start'],
+                'end': facet_data['end']
+            })
+    all_facets.sort(key=lambda x: x['start'])
+
+    # Estimate number of parts needed
+    estimated_parts = (len(text) // max_chars) + 1
+    if estimated_parts >= 100:
+        raise TooLongForThreadError()
+
+    # Split text into parts
+    parts = []
+    current_pos = 0
+
+    while current_pos < len(text):
+        # Calculate target end for this part
+        target_end = current_pos + max_chars
+
+        if target_end >= len(text):
+            # Last part
+            parts.append({
+                'start': current_pos,
+                'end': len(text)
+            })
+            break
+
+        # Find best split point
+        split_pos = find_best_split_point(text, current_pos, target_end, all_facets)
+
+        parts.append({
+            'start': current_pos,
+            'end': split_pos
+        })
+        current_pos = split_pos
+
+    # Check final part count
+    total = len(parts)
+    if total >= 100:
+        raise TooLongForThreadError()
+
+    # Build result with prefixes and adjusted facets
+    result = []
+    for i, part in enumerate(parts):
+        is_first = (i == 0)
+        is_last = (i == total - 1)
+
+        # Build prefix and suffix
+        prefix = THREAD_PREFIX_TEMPLATE.format(i=i+1, total=total)
+        if not is_first:
+            prefix += THREAD_CONTINUATION_PREFIX
+
+        part_text = text[part['start']:part['end']]
+
+        if not is_last:
+            part_text += THREAD_CONTINUATION_SUFFIX
+
+        full_text = prefix + part_text
+
+        # Adjust facets for this part
+        adjusted_links = adjust_facets_for_part(
+            text, part['start'], part['end'], links_dict, prefix
+        )
+        adjusted_mentions = adjust_facets_for_part(
+            text, part['start'], part['end'], mentions_dict, prefix
+        )
+        adjusted_tags = adjust_facets_for_part(
+            text, part['start'], part['end'], tags_dict, prefix
+        )
+
+        result.append({
+            'text': full_text,
+            'links_dict': adjusted_links,
+            'mentions_dict': adjusted_mentions,
+            'tags_dict': adjusted_tags
+        })
+
+    return result
+
+def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, warnings=None):
+    """
+    Post multiple parts as a thread.
+
+    Args:
+        parts_with_facets: Output from split_text_with_facets()
+        images: Images to attach (only to first post)
+        reply_to: Optional reply target
+        quote: Optional quote target
+        warnings: Warning list to append to
+
+    Returns:
+        PostDataList: All posted parts
+    """
+    if warnings is None:
+        warnings = []
+
+    client = ssky_client()
+    posted = []
+    root_ref = None
+    parent_ref = None
+
+    for i, part_data in enumerate(parts_with_facets):
+        text = part_data['text']
+        links_dict = part_data['links_dict']
+        mentions_dict = part_data['mentions_dict']
+        tags_dict = part_data['tags_dict']
+
+        is_first = (i == 0)
+
+        # Build facets
+        facets = []
+
+        # Add link facets
+        for link_data in links_dict.values():
+            facet = models.AppBskyRichtextFacet.Main(
+                features=[models.AppBskyRichtextFacet.Link(uri=link_data['uri'])],
+                index=models.AppBskyRichtextFacet.ByteSlice(
+                    byte_start=link_data['byte_start'],
+                    byte_end=link_data['byte_end']
+                )
+            )
+            facets.append(facet)
+
+        # Add tag facets
+        for tag_data in tags_dict.values():
+            facet = models.AppBskyRichtextFacet.Main(
+                features=[models.AppBskyRichtextFacet.Tag(tag=tag_data['name'][1:])],
+                index=models.AppBskyRichtextFacet.ByteSlice(
+                    byte_start=tag_data['byte_start'],
+                    byte_end=tag_data['byte_end']
+                )
+            )
+            facets.append(facet)
+
+        # Add mention facets
+        for mention_data in mentions_dict.values():
+            if 'did' in mention_data and mention_data['did']:
+                facet = models.AppBskyRichtextFacet.Main(
+                    features=[models.AppBskyRichtextFacet.Mention(did=mention_data['did'])],
+                    index=models.AppBskyRichtextFacet.ByteSlice(
+                        byte_start=mention_data['byte_start'],
+                        byte_end=mention_data['byte_end']
+                    )
+                )
+                facets.append(facet)
+
+        # Handle embed (only for first post)
+        embed = None
+        current_reply_to = None
+
+        if is_first:
+            # First post: handle images, quote, reply_to
+            if quote:
+                source = get_post(quote)
+                if source is None:
+                    from ssky.result import NotFoundError
+                    raise NotFoundError("Quote source")
+                embed = models.AppBskyEmbedRecord.Main(
+                    record=models.ComAtprotoRepoStrongRef.Main(
+                        uri=source.uri,
+                        cid=source.cid
+                    )
+                )
+            elif images:
+                # Handle images
+                images_data = load_images(images if isinstance(images, list) else [images])
+                result = client.send_images(
+                    text=text,
+                    facets=facets if facets else None,
+                    images=images_data,
+                    reply_to=reply_to
+                )
+                root_ref = models.create_strong_ref(result)
+                parent_ref = root_ref
+                posted.append(result)
+                sleep(0.5)
+                continue
+
+            current_reply_to = reply_to
+        else:
+            # Subsequent posts: reply to thread
+            current_reply_to = models.app.bsky.feed.post.ReplyRef(
+                root=root_ref,
+                parent=parent_ref
+            )
+
+        # Post
+        if embed:
+            result = client.send_post(
+                text=text,
+                facets=facets if facets else None,
+                embed=embed,
+                reply_to=current_reply_to
+            )
+        else:
+            result = client.send_post(
+                text=text,
+                facets=facets if facets else None,
+                reply_to=current_reply_to
+            )
+
+        # Save references
+        if is_first:
+            root_ref = models.create_strong_ref(result)
+        parent_ref = models.create_strong_ref(result)
+
+        posted.append(result)
+        sleep(0.5)
+
+    # Wait for all posts to be available
+    result_posts = []
+    for result in posted:
+        post = get_post(result.uri)
+        while post is None:
+            warnings.append('Waiting for post to become available')
+            sleep(1)
+            post = get_post(result.uri)
+        result_posts.append(post)
+
+    # Create PostDataList
+    post_list = PostDataList()
+    for post in result_posts:
+        post_list.append(post)
+    for warning in warnings:
+        post_list.add_warning(warning)
+
+    return post_list
+
+def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_split=False, **kwargs):
     warnings = []  # Collect warnings during processing
 
     try:
@@ -381,6 +736,50 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, **kwarg
             links = [item['uri'] for item in links_dict.values()]
             # Extract mention handles only
             mentions = [item['handle'] for item in mentions_dict.values()]
+
+            # Check if thread splitting is needed
+            if not no_split and len(message) > 300:
+                # Split into thread
+                parts = split_text_with_facets(
+                    message,
+                    links_dict,
+                    mentions_dict,
+                    tags_dict
+                )
+
+                # Handle dry run for thread
+                if dry:
+                    # Show preview of all parts
+                    preview_parts = []
+                    for part in parts:
+                        preview_parts.append(part['text'])
+
+                    images_list = []
+                    if image:
+                        images_list = image if isinstance(image, list) else [image]
+                        if len(images_list) > 4:
+                            raise TooManyImagesError()
+
+                    # Return dry run result with thread preview
+                    return DryRunResult(
+                        message="\n---\n".join(preview_parts),
+                        tags=tags,
+                        links=links,
+                        mentions=mentions,
+                        images=images_list,
+                        card=None,
+                        reply_to=reply_to,
+                        quote=quote
+                    )
+
+                # Post as thread
+                return post_as_thread(
+                    parts,
+                    images=image,
+                    reply_to=reply_to,
+                    quote=quote,
+                    warnings=warnings
+                )
 
             # Get card info for links
             card = None

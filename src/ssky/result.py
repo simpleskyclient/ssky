@@ -291,6 +291,15 @@ class TooManyImagesError(SskyError):
         super().__init__("Too many image files", 400)
 
 
+class TooLongForThreadError(SskyError):
+    """Message too long for thread splitting errors."""
+    def __init__(self):
+        super().__init__(
+            "Message too long (would require 100+ posts)",
+            400
+        )
+
+
 # Relationship errors
 class NotFollowingError(SskyError):
     """Not following user errors."""

@@ -58,6 +58,7 @@ def parse():
     post_parser.add_argument('message', nargs='?', type=str, help='The message to post')
     post_parser.add_argument('-d', '--dry', action='store_true', help='Dry run')
     post_parser.add_argument('-i', '--image', action='append', type=str, default=[], metavar='PATH', help='Image files to attach')
+    post_parser.add_argument('--no-split', action='store_true', dest='no_split', help='Disable automatic thread splitting for long posts')
     post_parser.add_argument('-q', '--quote', type=str, default=None, metavar='URI', help='Quote a post')
     post_parser.add_argument('-r', '--reply-to', type=str, default=None, metavar='URI', help='Reply to a post')
 
