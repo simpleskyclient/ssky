@@ -181,10 +181,13 @@ All retrieval commands support multiple output formats via `-I/-J/-L/-T` flags:
 ## GitHub Repository Information
 
 This project has two repositories:
-- **Upstream**: `simpleskyclient/ssky` (for issues and pull requests)
-- **Local fork**: `mkyutani/ssky`
+- **Upstream**: `simpleskyclient/ssky` (main repository)
+- **Local fork**: `mkyutani/ssky` (your development fork)
 
-**Always confirm repository ownership before GitHub operations** using MCP GitHub tools or `gh` command.
+**Important**:
+- **Issues** should be reported to the upstream repository: https://github.com/simpleskyclient/ssky/issues
+- **Pull requests** should be submitted to the upstream repository after pushing to your fork
+- Always confirm repository ownership before GitHub operations using MCP GitHub tools or `gh` command
 
 ## Git Commit Message Policy
 
