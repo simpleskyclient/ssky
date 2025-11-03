@@ -106,6 +106,7 @@ class ThreadData:
             delimiter: Delimiter for short format
         """
         from ssky.post_data_list import PostDataList
+        import io
 
         # Create output directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
@@ -114,10 +115,59 @@ class ThreadData:
         if self.posts:
             root_post, _ = self.posts[0]
 
-            # Create PostDataList with all posts in thread
-            post_list = PostDataList()
-            for post, depth in self.posts:
-                post_list.append(post)
+            # Generate filename from root post using same logic as PostDataList
+            iso_datetime_str = root_post.record.created_at
+            if iso_datetime_str is None:
+                iso_datetime_str = "0000-00-00T00:00:00.000Z"
+            import re
+            datetime_components = re.split(r'T|Z|-|:|\+|\.', iso_datetime_str)
+            formatted_datetime_str = ''.join(datetime_components[:6])
+            filename = f"{root_post.author.handle}.{formatted_datetime_str}.txt"
+            filepath = os.path.join(output_dir, filename)
 
-            # Print to file using root post URI
-            post_list.print(format=format, output=output_dir, delimiter=delimiter)
+            # Capture the formatted output by temporarily redirecting stdout
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+
+            # Use the same logic as _print_to_stdout to preserve thread structure
+            if format in ('', 'id'):
+                for idx, (post, depth) in enumerate(self.posts):
+                    post_list = PostDataList()
+                    post_list.append(post)
+
+                    # Capture the output
+                    temp_stdout = sys.stdout
+                    sys.stdout = io.StringIO()
+                    post_list.print(format=format, delimiter=delimiter)
+                    output = sys.stdout.getvalue()
+                    sys.stdout = temp_stdout
+
+                    # Add prefix for replies (depth > 0)
+                    if depth > 0:
+                        lines = output.rstrip('\n').split('\n')
+                        for line in lines:
+                            print("| " + line)
+                    else:
+                        print(output.rstrip('\n'))
+
+                    # Add separator between posts within thread (long/text format only)
+                    if idx < len(self.posts) - 1 and format in ('long', 'text'):
+                        print("|")
+            else:
+                # For long and text formats, print posts with "|" separator
+                for idx, (post, depth) in enumerate(self.posts):
+                    post_list = PostDataList()
+                    post_list.append(post)
+                    post_list.print(format=format, delimiter=delimiter)
+
+                    # Add separator between posts within thread
+                    if idx < len(self.posts) - 1:
+                        print("|")
+
+            # Get the captured output and restore stdout
+            content = sys.stdout.getvalue()
+            sys.stdout = old_stdout
+
+            # Write to file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
