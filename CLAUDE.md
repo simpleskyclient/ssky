@@ -25,6 +25,25 @@ poetry add package-name
 poetry add --group dev package-name
 ```
 
+### Dev Container Environment Variables
+When using VS Code Dev Containers, environment variables are loaded from `.env.local`:
+
+```bash
+# Create .env.local from sample
+cp .env.local.sample .env.local
+
+# Edit .env.local to add your credentials
+# SSKY_USER=your-handle.bsky.social:your-password
+# SSKY_SKIP_REAL_API_TESTS=1
+```
+
+The dev container automatically:
+- Loads `.env.local` on container startup (via `runArgs` in `devcontainer.json`)
+- Installs Claude Code extension (`anthropic.claude-code`)
+- Provides Python 3.12 with Docker-outside-of-Docker support
+
+**Important**: `.env.local` is gitignored and should never be committed.
+
 ### Testing
 **Important**: All Python commands must run through Poetry to avoid import errors.
 
@@ -106,7 +125,8 @@ The main CLI package follows a modular command pattern:
 
 - **Data structures**:
   - **`post_data_list.py`** (Lines 32-61): URL restoration from facets (processes in reverse order to avoid index shifting)
-  - **`post_data_list.py`** (Lines 100-119): `simple_json()` format for MCP consumption
+  - **`post_data_list.py`** (Lines 67-119): `_extract_facets_data()` extracts structured facets metadata (links, mentions, tags)
+  - **`post_data_list.py`** (Lines 154-174): `get_simple_data()` returns simplified post data with facets field
   - **`profile_list.py`** (Lines 118-129): Lazy loading - only fetches profiles when printing
 
 - **`util.py`**:
@@ -145,7 +165,10 @@ All retrieval commands support multiple output formats via `-I/-J/-L/-T` flags:
 - **`id`**: URIs/IDs only (for scripting)
 - **`json`**: Full JSON format
 - **`long`**: Detailed human-readable format (default for MCP)
-- **`simple_json`**: Simplified JSON for MCP consumption
+- **`simple_json`**: Simplified JSON for MCP consumption **with facets metadata**
+  - Includes structured arrays for links, mentions, and tags
+  - Each facet entry contains URL/handle/tag, byte positions, and text segment
+  - Example: `{"facets": {"links": [...], "mentions": [...], "tags": [...]}}`
 - **`text`**: Text content only
 
 ### Testing Architecture
@@ -162,6 +185,26 @@ This project has two repositories:
 - **Local fork**: `mkyutani/ssky`
 
 **Always confirm repository ownership before GitHub operations** using MCP GitHub tools or `gh` command.
+
+## Git Commit Message Policy
+
+**Commit messages should be a single-line summary only. Do NOT include:**
+- Multi-line body text
+- "Generated with Claude Code" footer
+- "Co-Authored-By: Claude" footer
+- Emoji or decorative elements
+
+**Example**:
+```
+✅ GOOD: feat: add facets to simple-json output
+❌ BAD:  feat: add facets to simple-json output
+
+         All tests pass. Backward compatible.
+
+         🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+         Co-Authored-By: Claude <noreply@anthropic.com>
+```
 
 ## Important Architectural Patterns
 

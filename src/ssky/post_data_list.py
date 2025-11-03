@@ -64,6 +64,60 @@ class PostDataList:
             text = self.post.record.text if self.post.record.text else ''
             return self._process_urls_from_facets(text)
 
+        def _extract_facets_data(self) -> dict:
+            """
+            Extract structured facets data from post record.
+
+            Returns:
+                dict: Facets organized by type (links, mentions, tags)
+            """
+            facets_data = {
+                "links": [],
+                "mentions": [],
+                "tags": []
+            }
+
+            # Check if facets exist
+            if not hasattr(self.post.record, 'facets') or not self.post.record.facets:
+                return facets_data
+
+            text_bytes = self.post.record.text.encode('utf-8')
+
+            # Process each facet
+            for facet in self.post.record.facets:
+                byte_start = facet.index.byte_start
+                byte_end = facet.index.byte_end
+
+                # Extract text segment
+                text_segment = text_bytes[byte_start:byte_end].decode('utf-8')
+
+                # Process each feature in the facet
+                for feature in facet.features:
+                    if hasattr(feature, 'uri'):  # Link facet
+                        facets_data["links"].append({
+                            "url": feature.uri,
+                            "byte_start": byte_start,
+                            "byte_end": byte_end,
+                            "text": text_segment
+                        })
+                    elif hasattr(feature, 'did'):  # Mention facet
+                        facets_data["mentions"].append({
+                            "handle": text_segment[1:] if text_segment.startswith('@') else text_segment,
+                            "did": feature.did,
+                            "byte_start": byte_start,
+                            "byte_end": byte_end,
+                            "text": text_segment
+                        })
+                    elif hasattr(feature, 'tag'):  # Tag facet
+                        facets_data["tags"].append({
+                            "tag": feature.tag,
+                            "byte_start": byte_start,
+                            "byte_end": byte_end,
+                            "text": text_segment
+                        })
+
+            return facets_data
+
         def short(self, delimiter: str = None) -> str:
             if delimiter is None:
                 delimiter = PostDataList.get_default_delimiter()
@@ -100,7 +154,6 @@ class PostDataList:
         def get_simple_data(self) -> dict:
             """Return simplified post data as dict (without wrapping in success response)"""
             text = self.post.record.text if self.post.record.text else ""
-            processed_text = self._process_urls_from_facets(text)
             return {
                 "uri": self.post.uri,
                 "cid": self.post.cid,
@@ -110,12 +163,13 @@ class PostDataList:
                     "display_name": self.post.author.display_name,
                     "avatar": self.post.author.avatar
                 },
-                "text": processed_text,
+                "text": text,
                 "created_at": self.post.record.created_at,
                 "reply_count": self.post.reply_count if hasattr(self.post, 'reply_count') else 0,
                 "repost_count": self.post.repost_count if hasattr(self.post, 'repost_count') else 0,
                 "like_count": self.post.like_count if hasattr(self.post, 'like_count') else 0,
-                "indexed_at": self.post.indexed_at if hasattr(self.post, 'indexed_at') else None
+                "indexed_at": self.post.indexed_at if hasattr(self.post, 'indexed_at') else None,
+                "facets": self._extract_facets_data()
             }
 
         def simple_json(self) -> str:

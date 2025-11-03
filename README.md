@@ -92,8 +92,65 @@ ssky get --text
 # Get full JSON output
 ssky get --json
 
+# Get simplified JSON with facets metadata (ideal for programmatic access)
+ssky get --simple-json
+
 # Save posts to files
 ssky get --output ./posts
+```
+
+#### Facets Metadata in Simple-JSON
+
+The `--simple-json` format includes structured facets metadata for rich text features:
+
+- **links**: URLs with byte positions and text
+- **mentions**: User mentions with handles, DIDs, and byte positions
+- **tags**: Hashtags with byte positions and text
+
+Example output:
+```json
+{
+  "status": "success",
+  "data": [{
+    "uri": "at://...",
+    "cid": "...",
+    "author": {
+      "did": "did:plc:...",
+      "handle": "user.bsky.social",
+      "display_name": "User Name",
+      "avatar": "https://..."
+    },
+    "text": "Check out https://example.com @user.bsky.social #bluesky",
+    "created_at": "2024-01-01T00:00:00.000Z",
+    "facets": {
+      "links": [
+        {
+          "url": "https://example.com",
+          "byte_start": 10,
+          "byte_end": 30,
+          "text": "https://example.com"
+        }
+      ],
+      "mentions": [
+        {
+          "handle": "user.bsky.social",
+          "did": "did:plc:...",
+          "byte_start": 31,
+          "byte_end": 49,
+          "text": "@user.bsky.social"
+        }
+      ],
+      "tags": [
+        {
+          "tag": "bluesky",
+          "byte_start": 50,
+          "byte_end": 58,
+          "text": "#bluesky"
+        }
+      ]
+    }
+  }]
+}
 ```
 
 ### Useful Examples
@@ -148,6 +205,25 @@ export SSKY_USER=your-handle.bsky.social:your-password
 
 📖 **[Complete MCP Documentation](mcp/SSKY_MCP_GUIDE.md)**
 
+## 🧪 Development with Dev Container
+
+For development using VS Code Dev Containers:
+
+1. Copy the environment configuration file and set your Bluesky credentials:
+   ```bash
+   cp .env.local.sample .env.local
+   ```
+   Edit `.env.local` and add your Bluesky handle and password:
+   ```bash
+   SSKY_USER=your-handle.bsky.social:your-password
+   SSKY_SKIP_REAL_API_TESTS=1
+   ```
+
+2. The dev container automatically:
+   - Loads environment variables from `.env.local`
+   - Installs Claude Code extension
+   - Sets up Python 3.12 environment with Docker support
+
 ## 🧪 Testing
 
 To run the tests in the `tests/` directory:
@@ -162,7 +238,7 @@ To run the tests in the `tests/` directory:
    ```bash
    # Run all tests
    pytest tests/ -v
-   
+
    # Run individual feature tests
    pytest tests/test_login.py -v              # Login functionality
    pytest tests/test_post_and_delete.py -v    # Post and delete operations

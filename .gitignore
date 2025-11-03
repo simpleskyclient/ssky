@@ -3,6 +3,8 @@
 
 # Local files
 .cursor/
+.claude/
+.vscode/
 volumes/
 env/
 log/
