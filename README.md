@@ -205,6 +205,25 @@ export SSKY_USER=your-handle.bsky.social:your-password
 
 📖 **[Complete MCP Documentation](mcp/SSKY_MCP_GUIDE.md)**
 
+## 🧪 Development with Dev Container
+
+For development using VS Code Dev Containers:
+
+1. Copy the environment configuration file and set your Bluesky credentials:
+   ```bash
+   cp .env.local.sample .env.local
+   ```
+   Edit `.env.local` and add your Bluesky handle and password:
+   ```bash
+   SSKY_USER=your-handle.bsky.social:your-password
+   SSKY_SKIP_REAL_API_TESTS=1
+   ```
+
+2. The dev container automatically:
+   - Loads environment variables from `.env.local`
+   - Installs Claude Code extension
+   - Sets up Python 3.12 environment with Docker support
+
 ## 🧪 Testing
 
 To run the tests in the `tests/` directory:
@@ -219,7 +238,7 @@ To run the tests in the `tests/` directory:
    ```bash
    # Run all tests
    pytest tests/ -v
-   
+
    # Run individual feature tests
    pytest tests/test_login.py -v              # Login functionality
    pytest tests/test_post_and_delete.py -v    # Post and delete operations

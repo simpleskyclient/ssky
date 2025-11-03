@@ -25,6 +25,25 @@ poetry add package-name
 poetry add --group dev package-name
 ```
 
+### Dev Container Environment Variables
+When using VS Code Dev Containers, environment variables are loaded from `.env.local`:
+
+```bash
+# Create .env.local from sample
+cp .env.local.sample .env.local
+
+# Edit .env.local to add your credentials
+# SSKY_USER=your-handle.bsky.social:your-password
+# SSKY_SKIP_REAL_API_TESTS=1
+```
+
+The dev container automatically:
+- Loads `.env.local` on container startup (via `runArgs` in `devcontainer.json`)
+- Installs Claude Code extension (`anthropic.claude-code`)
+- Provides Python 3.12 with Docker-outside-of-Docker support
+
+**Important**: `.env.local` is gitignored and should never be committed.
+
 ### Testing
 **Important**: All Python commands must run through Poetry to avoid import errors.
 
