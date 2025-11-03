@@ -65,12 +65,15 @@ class TestPostDeleteSequential:
         # Test dry run - should not make API calls
         message = os.environ.get('SSKY_TEST_POST_TEXT', 'Test post message')
         image = os.environ.get('SSKY_TEST_POST_IMAGE')
-        
+
         dry_result = post(message=message, image=[image] if image else [], dry=True)
-        
+
         # Dry run should return a DryRunResult object
         assert isinstance(dry_result, DryRunResult), "Dry run should return DryRunResult"
-        assert dry_result.message == message, "DryRunResult should contain the message"
+        # If the message contains URLs, they will be shortened
+        # So we can't directly compare with the original message
+        # Instead, verify that the message contains expected non-URL content
+        assert 'ssky' in dry_result.message or 'Test post message' in dry_result.message
     
     def test_02_real_post_quote_reply_delete_cycle(self):
         """Real API test - post, quote, reply, and delete cycle (only real API test in this file)"""
@@ -236,7 +239,7 @@ class TestPostDeleteSequential:
     def test_06_post_facets_dry_run_urls(self):
         """Test dry run with URLs extracts links and cards properly"""
         message = "Check out https://www.example.com/ for more info"
-        
+
         # Mock get_card to avoid actual HTTP requests
         with patch('ssky.post.get_card') as mock_get_card:
             mock_get_card.return_value = [{
@@ -245,11 +248,12 @@ class TestPostDeleteSequential:
                 'thumbnail': None,
                 'uri': 'https://www.example.com/'
             }]
-            
+
             dry_result = post(message=message, dry=True)
-            
+
             assert isinstance(dry_result, DryRunResult)
-            assert dry_result.message == message
+            # Message should now contain shortened URL
+            assert dry_result.message == "Check out www.example.com for more info"
             assert len(dry_result.links) == 1
             assert 'https://www.example.com/' in dry_result.links
             assert dry_result.card is not None
@@ -297,12 +301,13 @@ class TestPostDeleteSequential:
                 }]
                 
                 message = "Check out https://www.example.com/ #awesome @test.bsky.social! #bluesky"
-                
+
                 dry_result = post(message=message, dry=True)
-                
+
                 assert isinstance(dry_result, DryRunResult)
-                assert dry_result.message == message
-                
+                # Message should now contain shortened URL
+                assert dry_result.message == "Check out www.example.com #awesome @test.bsky.social! #bluesky"
+
                 # Check all facets were extracted
                 assert len(dry_result.links) == 1
                 assert 'https://www.example.com/' in dry_result.links
@@ -337,6 +342,12 @@ class TestPostDeleteSequential:
                     'uri': 'https://www.example.com/'
                 }]
                 
+                # Mock the send_post return value
+                mock_send_post_result = Mock()
+                mock_send_post_result.uri = "at://test.user/app.bsky.feed.post/test123"
+                mock_send_post_result.cid = "testcid123"
+                mock_client.send_post.return_value = mock_send_post_result
+
                 # Mock the retrieved post for verification
                 mock_retrieved_post = Mock()
                 mock_retrieved_post.uri = "at://test.user/app.bsky.feed.post/test123"
@@ -345,15 +356,16 @@ class TestPostDeleteSequential:
                 mock_retrieved_post.author.did = "did:plc:test123"
                 mock_retrieved_post.author.handle = "test.bsky.social"
                 mock_retrieved_post.record = Mock()
-                mock_retrieved_post.record.text = "Test message with #hashtag https://www.example.com/ @test.bsky.social"
-                
+                # Updated text should have shortened URL
+                mock_retrieved_post.record.text = "Test message with #hashtag www.example.com @test.bsky.social"
+
                 mock_get_posts_response = Mock()
                 mock_get_posts_response.posts = [mock_retrieved_post]
                 mock_client.get_posts.return_value = mock_get_posts_response
-                
+
                 with patch('ssky.post.ssky_client') as mock_ssky_client:
                     mock_ssky_client.return_value = mock_client
-                    
+
                     message = "Test message with #hashtag https://www.example.com/ @test.bsky.social"
                     result = post(message=message, dry=False)
                     
