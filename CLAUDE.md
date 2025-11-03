@@ -122,12 +122,24 @@ The main CLI package follows a modular command pattern:
 - **Command modules**: Each subcommand (`get.py`, `post.py`, `search.py`, etc.) is a standalone module with a function matching its name
   - Standard pattern: validate args → get client → call API → return `PostDataList`/`ProfileList`
   - All commands return result objects with `.print()` method for formatting
+  - **`get.py`** (thread retrieval):
+    - Lines 33-84: `get()` function with `--thread` support
+    - With `--thread=True`: retrieves full thread for each post via `get_post_thread()`
+    - Returns `ThreadDataList` when `--thread` is True, `PostDataList` otherwise
+    - Supports all target types: timeline, author feeds, DIDs, single post URIs
+    - Validates that `--thread` is not used with `--json` or `--simple-json` (raises `InvalidOptionCombinationError`)
 
 - **Data structures**:
   - **`post_data_list.py`** (Lines 32-61): URL restoration from facets (processes in reverse order to avoid index shifting)
   - **`post_data_list.py`** (Lines 67-119): `_extract_facets_data()` extracts structured facets metadata (links, mentions, tags)
   - **`post_data_list.py`** (Lines 154-174): `get_simple_data()` returns simplified post data with facets field
   - **`profile_list.py`** (Lines 118-129): Lazy loading - only fetches profiles when printing
+  - **`thread_data.py`**: Represents a single thread with flattened post structure
+    - Stores list of (post, depth) tuples from recursive thread structure
+    - Implements output formatting with `"|"` separators and reply prefixes
+  - **`thread_data_list.py`**: Holds multiple ThreadData objects
+    - Returns ThreadDataList when `get()` is called with `--thread` option
+    - Separates independent threads with `"----------------"`
 
 - **`util.py`**:
   - Lines 15-23: URI/CID handling (`join_uri_cid`, `disjoin_uri_cid`)
@@ -161,15 +173,20 @@ The main CLI package follows a modular command pattern:
 **Singleton Pattern**: `SskySession.session` is class-level and shared across all operations in the same process
 
 ### Output Formats
-All retrieval commands support multiple output formats via `-I/-J/-L/-T` flags:
-- **`id`**: URIs/IDs only (for scripting)
-- **`json`**: Full JSON format
-- **`long`**: Detailed human-readable format (default for MCP)
-- **`simple_json`**: Simplified JSON for MCP consumption **with facets metadata**
+All retrieval commands support multiple output formats via `-I/-J/-L/-T/-S` flags:
+- **`id`** (`-I`): URIs/IDs only (for scripting)
+- **`json`** (`-J`): Full JSON format (cannot be used with `--thread`)
+- **`long`** (`-L`): Detailed human-readable format (default for MCP)
+- **`simple_json`** (`-S`): Simplified JSON for MCP consumption **with facets metadata** (cannot be used with `--thread`)
   - Includes structured arrays for links, mentions, and tags
   - Each facet entry contains URL/handle/tag, byte positions, and text segment
   - Example: `{"facets": {"links": [...], "mentions": [...], "tags": [...]}}`
-- **`text`**: Text content only
+- **`text`** (`-T`): Text content only
+- **`short`** (default): Short format
+
+**Thread-specific formatting** (when using `--thread`):
+- **Short/ID format**: Reply lines prefixed with `"| "`
+- **Long/Text format**: Posts within thread separated by `"|"`, independent threads by `"----------------"`
 
 ### Testing Architecture
 - **`test_00_ssky_session.py`**: ONLY tests making real API calls
