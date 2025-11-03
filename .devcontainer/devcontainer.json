@@ -8,7 +8,9 @@
 		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
 	},
 
-	// Load environment variables from .env.local file
+	// Load environment variables from .env.local file (if it exists)
+	// Create .env.local from .env.local.sample before first use
+	"initializeCommand": "bash -c 'if [ ! -f .env.local ]; then cp .env.local.sample .env.local; fi'",
 	"runArgs": ["--env-file", "${localWorkspaceFolder}/.env.local"],
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
@@ -18,7 +20,7 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "pip3 install --user -r requirements.txt",
+	"postCreateCommand": "curl -sSL https://install.python-poetry.org | python3 - && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && poetry install && echo '\n# Auto-activate Poetry virtual environment for ssky project\nif [ -d \"/workspaces/ssky/.venv\" ]; then\n    source /workspaces/ssky/.venv/bin/activate\nfi' >> ~/.bashrc",
 
 	// Configure tool-specific properties.
 	"customizations": {
