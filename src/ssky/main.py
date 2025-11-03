@@ -50,6 +50,10 @@ def parse():
 
     get_parser = sp.add_parser('get', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Get posts')
     get_parser.add_argument('target', nargs='?', type=str, default=None, metavar='PARAM', help='URI(at://...), DID(did:...), handle, "myself", or none as timeline')
+    get_parser.add_argument('--thread', action='store_true', help='Retrieve full thread for each post')
+    get_parser.add_argument('--thread-depth', type=int, default=10, metavar='NUM', help='Maximum depth of thread replies to retrieve (default: 10)')
+    get_parser.add_argument('--thread-parent-height', type=int, default=0, metavar='NUM', help='Number of parent posts to retrieve (default: 0)')
+
 
     login_parser = sp.add_parser('login', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Login')
     login_parser.add_argument('credentials', nargs='?', type=str, default=None, help='User credentials (handle:password)')

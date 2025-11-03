@@ -1,6 +1,8 @@
 import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
+from ssky.thread_data import ThreadData
+from ssky.thread_data_list import ThreadDataList
 from ssky.result import (
     AtProtocolSskyError,
     SessionError,
@@ -30,15 +32,16 @@ def get_timeline(client, limit=100) -> None:
         post_data_list.append(feed_post.post)
     return post_data_list
 
-def get(target=None, limit=100, **kwargs) -> PostDataList:
+def get(target=None, limit=100, thread=False, thread_depth=10, thread_parent_height=0, format='', **kwargs):
     try:
         current_session = ssky_client()
         if current_session is None:
             raise SessionError()
-        
+
+        # First, retrieve posts normally
         if target is None:
             # Get timeline
-            return get_timeline(current_session, limit=limit)
+            post_data_list = get_timeline(current_session, limit=limit)
         elif target.startswith('at://'):
             # AT URI - single post or post with CID
             if is_joined_uri_cid(target):
@@ -46,16 +49,34 @@ def get(target=None, limit=100, **kwargs) -> PostDataList:
             else:
                 uri = target
                 cid = None
-            return get_posts(current_session, uri, cid)
+            post_data_list = get_posts(current_session, uri, cid)
         elif target.startswith('did:'):
             # DID - get author feed
-            return get_author_feed(current_session, target, limit=limit)
+            post_data_list = get_author_feed(current_session, target, limit=limit)
         else:
             # Handle or other identifier - expand and get author feed
             actor = expand_actor(target)
             if not actor:
                 raise InvalidActorError()
-            return get_author_feed(current_session, actor, limit=limit)
-        
+            post_data_list = get_author_feed(current_session, actor, limit=limit)
+
+        # If --thread is specified and format is not json/simple_json, expand each post into threads
+        if thread and format not in ('json', 'simple_json'):
+            thread_data_list = ThreadDataList()
+
+            for item in post_data_list.items:
+                # Get thread for each post
+                thread_response = current_session.get_post_thread(
+                    item.post.uri,
+                    depth=thread_depth,
+                    parent_height=thread_parent_height
+                )
+                thread_data = ThreadData(thread_response)
+                thread_data_list.append(thread_data)
+
+            return thread_data_list
+        else:
+            return post_data_list
+
     except atproto_client.exceptions.AtProtocolError as e:
         raise AtProtocolSskyError(e) from e
