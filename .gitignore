@@ -3,6 +3,7 @@
 
 # Local files
 .cursor/
+.claude/
 volumes/
 env/
 log/
