@@ -42,8 +42,8 @@ class ThreadDataList:
             # Print thread
             thread.print(format=format, delimiter=delimiter)
 
-            # Add separator between threads (for long/text format only)
-            if idx < len(self.threads) - 1 and format in ('long', ''):
+            # Add separator between threads (for long/text format only, not for short/id)
+            if idx < len(self.threads) - 1 and format in ('long', 'text'):
                 print("----------------")
 
     def _print_to_files(self, format, output_dir, delimiter):

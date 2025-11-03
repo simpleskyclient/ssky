@@ -4,9 +4,12 @@ from atproto import models
 import atproto_client
 from ssky.ssky_session import expand_actor, ssky_client
 from ssky.post_data_list import PostDataList
+from ssky.thread_data import ThreadData
+from ssky.thread_data_list import ThreadDataList
 from ssky.result import (
     AtProtocolSskyError,
-    SessionError
+    SessionError,
+    InvalidOptionCombinationError
 )
 
 def expand_datetime(dt: str) -> str:
@@ -26,7 +29,7 @@ def expand_datetime(dt: str) -> str:
     else:
         return None
 
-def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> PostDataList:
+def search(q='*', author=None, since=None, until=None, limit=100, thread=False, thread_depth=10, thread_parent_height=0, format='', **kwargs):
     since = expand_datetime(since)
     until = expand_datetime(until)
 
@@ -34,7 +37,11 @@ def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> P
         current_session = ssky_client()
         if current_session is None:
             raise SessionError()
-        
+
+        # Check for invalid option combination
+        if thread and format in ('json', 'simple_json'):
+            raise InvalidOptionCombinationError("--thread cannot be used with --json or --simple-json")
+
         res = current_session.app.bsky.feed.search_posts(
             models.AppBskyFeedSearchPosts.Params(
                 author=expand_actor(author),
@@ -49,6 +56,24 @@ def search(q='*', author=None, since=None, until=None, limit=100, **kwargs) -> P
         if res.posts and len(res.posts) > 0:
             for post in res.posts:
                 post_data_list.append(post)
-        return post_data_list
+
+        # If --thread is specified, expand each post into threads
+        if thread:
+            thread_data_list = ThreadDataList()
+
+            for item in post_data_list.items:
+                # Get thread for each post
+                thread_response = current_session.get_post_thread(
+                    item.post.uri,
+                    depth=thread_depth,
+                    parent_height=thread_parent_height
+                )
+                thread_data = ThreadData(thread_response)
+                thread_data_list.append(thread_data)
+
+            return thread_data_list
+        else:
+            return post_data_list
+
     except atproto_client.exceptions.AtProtocolError as e:
         raise AtProtocolSskyError(e) from e
