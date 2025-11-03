@@ -5,7 +5,11 @@
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/python:2-3.12-bullseye",
 	"features": {
-		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/devcontainers-extra/features/poetry:2": {
+			"version": "latest"
+		}
 	},
 
 	// Load environment variables from .env.local file (if it exists)
@@ -20,7 +24,7 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "curl -sSL https://install.python-poetry.org | python3 - && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && poetry install && echo '\n# Auto-activate Poetry virtual environment for ssky project\nif [ -d \"/workspaces/ssky/.venv\" ]; then\n    source /workspaces/ssky/.venv/bin/activate\nfi' >> ~/.bashrc",
+	"postCreateCommand": "poetry install && echo '\n# Auto-activate Poetry virtual environment for ssky project\nif [ -d \"/workspaces/ssky/.venv\" ]; then\n    source /workspaces/ssky/.venv/bin/activate\nfi' >> ~/.bashrc",
 
 	// Configure tool-specific properties.
 	"customizations": {
