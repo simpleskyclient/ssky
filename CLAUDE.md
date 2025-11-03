@@ -123,11 +123,16 @@ The main CLI package follows a modular command pattern:
   - Standard pattern: validate args → get client → call API → return `PostDataList`/`ProfileList`
   - All commands return result objects with `.print()` method for formatting
   - **`get.py`** (thread retrieval):
-    - Lines 33-84: `get()` function with `--thread` support
+    - Lines 36-100: `get()` function with `--thread` support
     - With `--thread=True`: retrieves full thread for each post via `get_post_thread()`
     - Returns `ThreadDataList` when `--thread` is True, `PostDataList` otherwise
     - Supports all target types: timeline, author feeds, DIDs, single post URIs
     - Validates that `--thread` is not used with `--json` or `--simple-json` (raises `InvalidOptionCombinationError`)
+    - **Thread deduplication**: Processes posts in reverse order (oldest first), skips posts already included in other threads
+  - **`search.py`** (search with thread support):
+    - Lines 29-92: `search()` function with `--thread` support
+    - Same thread deduplication logic as `get.py`
+    - Default `--thread-parent-height=10` to retrieve parent posts for context
 
 - **Data structures**:
   - **`post_data_list.py`** (Lines 32-61): URL restoration from facets (processes in reverse order to avoid index shifting)
@@ -138,8 +143,9 @@ The main CLI package follows a modular command pattern:
     - Stores list of (post, depth) tuples from recursive thread structure
     - Implements output formatting with `"|"` separators and reply prefixes
   - **`thread_data_list.py`**: Holds multiple ThreadData objects
-    - Returns ThreadDataList when `get()` is called with `--thread` option
-    - Separates independent threads with `"----------------"`
+    - Returns ThreadDataList when `get()` or `search()` is called with `--thread` option
+    - Separates independent threads with `"----------------"` (long/text format only)
+    - Implements thread deduplication to avoid showing the same post multiple times
 
 - **`util.py`**:
   - Lines 15-23: URI/CID handling (`join_uri_cid`, `disjoin_uri_cid`)
@@ -185,8 +191,15 @@ All retrieval commands support multiple output formats via `-I/-J/-L/-T/-S` flag
 - **`short`** (default): Short format
 
 **Thread-specific formatting** (when using `--thread`):
-- **Short/ID format**: Reply lines prefixed with `"| "`
+- **Short/ID format**: Reply lines prefixed with `"| "`, no separator between independent threads
 - **Long/Text format**: Posts within thread separated by `"|"`, independent threads by `"----------------"`
+
+**Thread deduplication** (when using `--thread`):
+- When multiple posts in the result belong to the same thread, they are automatically deduplicated
+- Posts are processed in reverse order (oldest first) to prioritize parent posts
+- If a post is already included in another thread, it won't appear as a separate root thread
+- Default `--thread-parent-height=10` ensures parent posts are retrieved for proper deduplication
+- Example: If search returns both a parent post and its replies, only the parent's thread is shown once
 
 ### Testing Architecture
 - **`test_00_ssky_session.py`**: ONLY tests making real API calls
