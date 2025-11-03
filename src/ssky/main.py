@@ -50,6 +50,10 @@ def parse():
 
     get_parser = sp.add_parser('get', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options, limit_options], help='Get posts')
     get_parser.add_argument('target', nargs='?', type=str, default=None, metavar='PARAM', help='URI(at://...), DID(did:...), handle, "myself", or none as timeline')
+    get_parser.add_argument('--thread', action='store_true', help='Retrieve full thread for each post')
+    get_parser.add_argument('--thread-depth', type=int, default=10, metavar='NUM', help='Maximum depth of thread replies to retrieve (default: 10)')
+    get_parser.add_argument('--thread-parent-height', type=int, default=0, metavar='NUM', help='Number of parent posts to retrieve (default: 0)')
+
 
     login_parser = sp.add_parser('login', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Login')
     login_parser.add_argument('credentials', nargs='?', type=str, default=None, help='User credentials (handle:password)')
@@ -58,6 +62,7 @@ def parse():
     post_parser.add_argument('message', nargs='?', type=str, help='The message to post')
     post_parser.add_argument('-d', '--dry', action='store_true', help='Dry run')
     post_parser.add_argument('-i', '--image', action='append', type=str, default=[], metavar='PATH', help='Image files to attach')
+    post_parser.add_argument('--no-split', action='store_true', dest='no_split', help='Disable automatic thread splitting for long posts')
     post_parser.add_argument('-q', '--quote', type=str, default=None, metavar='URI', help='Quote a post')
     post_parser.add_argument('-r', '--reply-to', type=str, default=None, metavar='URI', help='Reply to a post')
 

@@ -291,6 +291,15 @@ class TooManyImagesError(SskyError):
         super().__init__("Too many image files", 400)
 
 
+class TooLongForThreadError(SskyError):
+    """Message too long for thread splitting errors."""
+    def __init__(self):
+        super().__init__(
+            "Message too long (would require 100+ posts)",
+            400
+        )
+
+
 # Relationship errors
 class NotFollowingError(SskyError):
     """Not following user errors."""
@@ -302,6 +311,12 @@ class InvalidUriError(SskyError):
     """Invalid URI errors."""
     def __init__(self, uri: str = None):
         message = f"Invalid URI: {uri}" if uri else "URI cannot be empty"
+        super().__init__(message, 400)
+
+
+class InvalidOptionCombinationError(SskyError):
+    """Invalid option combination errors."""
+    def __init__(self, message: str = "Invalid option combination"):
         super().__init__(message, 400)
 
 

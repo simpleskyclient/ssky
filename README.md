@@ -55,6 +55,15 @@ ssky post "Interesting!" --quote at://did:plc:.../app.bsky.feed.post/...
 # View your timeline
 ssky get
 
+# View your timeline with full threads
+ssky get --thread
+
+# Get specific post with its thread
+ssky get at://did:plc:.../app.bsky.feed.post/... --thread
+
+# Get user's posts as threads with custom depth
+ssky get user.bsky.social --thread --thread-depth 5 --thread-parent-height 2
+
 # View someone's profile
 ssky profile user.bsky.social
 
@@ -79,6 +88,35 @@ ssky delete at://did:plc:.../app.bsky.feed.post/...
 ```
 
 ## 🔧 Advanced Usage
+
+### Thread Retrieval
+
+Retrieve posts along with their complete conversation threads:
+
+```bash
+# Get timeline with full threads (each post expanded to its thread)
+ssky get --thread
+
+# Get specific post's thread
+ssky get at://did:plc:.../app.bsky.feed.post/... --thread
+
+# Get user's posts as threads
+ssky get user.bsky.social --thread
+
+# Control thread depth (default: 10 replies deep)
+ssky get --thread --thread-depth 5
+
+# Include parent posts (default: 0 parents)
+ssky get --thread --thread-parent-height 2
+
+# Save threads to files
+ssky get --thread --output ./threads
+```
+
+**Thread Output Formatting:**
+- **Short/ID format** (`-S`, `-I`): Reply lines prefixed with `"| "`
+- **Long/Text format** (`-L`, `-T`): Posts within thread separated by `"|"`, independent threads by `"----------------"`
+- **JSON/simple-json**: Cannot be used with `--thread` (returns error)
 
 ### Output Formats
 

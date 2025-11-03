@@ -60,7 +60,7 @@ class TestGetSequential:
         
         # This test uses real API calls - no mocking
         try:
-            result = get(param=None)
+            result = get(target=None)
             assert isinstance(result, PostDataList), "Get timeline should return PostDataList"
         finally:
             SskySession.clear()
@@ -72,7 +72,7 @@ class TestGetSequential:
         with patch('ssky.get.ssky_client') as mock_ssky_client:
             mock_ssky_client.return_value = mock_client
             
-            result = get(param='myself')
+            result = get(target='myself')
             assert isinstance(result, PostDataList), "Get myself should return PostDataList"
     
     def test_03_get_with_actor_handle(self, mock_get_environment):
@@ -83,7 +83,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             handle = os.environ.get('SSKY_TEST_HANDLE', 'test.bsky.social')
-            result = get(param=handle)
+            result = get(target=handle)
             
             assert isinstance(result, PostDataList), "Get by handle should return PostDataList"
     
@@ -95,7 +95,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             did = os.environ.get('SSKY_TEST_DID', 'did:plc:test123')
-            result = get(param=did)
+            result = get(target=did)
             
             assert isinstance(result, PostDataList), "Get by DID should return PostDataList"
     
@@ -107,7 +107,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             uri = os.environ.get('SSKY_TEST_URI', 'at://test.user/app.bsky.feed.post/test123')
-            result = get(param=uri)
+            result = get(target=uri)
             
             assert isinstance(result, PostDataList), "Get by URI should return PostDataList"
     
@@ -119,7 +119,7 @@ class TestGetSequential:
             mock_ssky_client.return_value = mock_client
             
             uri_cid = os.environ.get('SSKY_TEST_URI_CID', 'at://test.user/app.bsky.feed.post/test123|testcid123')
-            result = get(param=uri_cid)
+            result = get(target=uri_cid)
             
             assert isinstance(result, PostDataList), "Get by URI+CID should return PostDataList"
     
@@ -142,22 +142,22 @@ class TestGetSequential:
                 mock_expand_actor.return_value = None
                 invalid_handle = os.environ.get('SSKY_TEST_INVALID_HANDLE', 'invalid.handle.test')
                 with pytest.raises(InvalidActorError):
-                    get(param=invalid_handle)
+                    get(target=invalid_handle)
             
             # Test invalid DID - goes directly to get_author_feed, so AtProtocolSskyError
             invalid_did = os.environ.get('SSKY_TEST_INVALID_DID', 'did:plc:invalid123')
             with pytest.raises(AtProtocolSskyError):
-                get(param=invalid_did)
+                get(target=invalid_did)
             
             # Test invalid URI - should raise AtProtocolSskyError from API call
             invalid_uri = os.environ.get('SSKY_TEST_INVALID_URI', 'at://invalid/uri')
             with pytest.raises(AtProtocolSskyError):
-                get(param=invalid_uri)
+                get(target=invalid_uri)
             
             # Test invalid URI+CID - should raise AtProtocolSskyError from API call
             invalid_uri_cid = os.environ.get('SSKY_TEST_INVALID_URI_CID', 'at://invalid/uri|invalidcid')
             with pytest.raises(AtProtocolSskyError):
-                get(param=invalid_uri_cid)
+                get(target=invalid_uri_cid)
     
     def test_08_get_error_scenarios(self):
         """Test error handling scenarios"""
