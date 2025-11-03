@@ -417,7 +417,7 @@ class TestPostDataList:
         faceted_post = Mock()
         faceted_post.uri = env['test_uri1']
         faceted_post.cid = env['test_cid1']
-        
+
         # Mock author
         faceted_author = Mock()
         faceted_author.did = "did:plc:test123"
@@ -425,44 +425,48 @@ class TestPostDataList:
         faceted_author.display_name = "Test User"
         faceted_author.avatar = None
         faceted_post.author = faceted_author
-        
+
         # Mock record with truncated URL and facets
         faceted_record = Mock()
         faceted_record.text = "Check out this link: example.com/..."
         faceted_record.created_at = "2023-01-01T00:00:00.000Z"
-        
+
         # Mock facets with URL restoration info
         mock_facet = Mock()
         mock_facet.index = Mock()
         mock_facet.index.byte_start = 23  # Position of "example.com/..."
         mock_facet.index.byte_end = 37    # End of truncated text
-        
+
         mock_feature = Mock()
         mock_feature.uri = "https://example.com/full-url-path"
         mock_facet.features = [mock_feature]
-        
+
         faceted_record.facets = [mock_facet]
         faceted_post.record = faceted_record
-        
+
         # Mock other attributes
         faceted_post.indexed_at = "2023-01-01T01:00:00.000Z"
         faceted_post.reply_count = 0
         faceted_post.repost_count = 0
         faceted_post.like_count = 0
         faceted_post.viewer = None
-        
+
         item = PostDataList.Item(faceted_post)
-        
+
         # Test that text_only processes URLs from facets
         processed_text = item.text_only()
         assert "https://example.com/full-url-path" in processed_text
         assert "example.com/..." not in processed_text
-        
-        # Test that simple_json also includes processed text
+
+        # Test that simple_json includes raw text (not processed)
         simple_json_output = item.simple_json()
         parsed = json.loads(simple_json_output)
         data = parsed["data"]
-        assert "https://example.com/full-url-path" in data["text"]
+        assert data["text"] == "Check out this link: example.com/..."
+        # Full URL should be available in facets
+        assert "facets" in data
+        assert len(data["facets"]["links"]) == 1
+        assert data["facets"]["links"][0]["url"] == "https://example.com/full-url-path"
 
     def test_post_item_facets_no_facets(self, mock_post_data_environment):
         """Test PostDataList.Item with no facets (should return original text)"""

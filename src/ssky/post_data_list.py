@@ -154,7 +154,6 @@ class PostDataList:
         def get_simple_data(self) -> dict:
             """Return simplified post data as dict (without wrapping in success response)"""
             text = self.post.record.text if self.post.record.text else ""
-            processed_text = self._process_urls_from_facets(text)
             return {
                 "uri": self.post.uri,
                 "cid": self.post.cid,
@@ -164,7 +163,7 @@ class PostDataList:
                     "display_name": self.post.author.display_name,
                     "avatar": self.post.author.avatar
                 },
-                "text": processed_text,
+                "text": text,
                 "created_at": self.post.record.created_at,
                 "reply_count": self.post.reply_count if hasattr(self.post, 'reply_count') else 0,
                 "repost_count": self.post.repost_count if hasattr(self.post, 'repost_count') else 0,
