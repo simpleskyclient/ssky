@@ -42,7 +42,7 @@ def parse():
     limit_options = argparse.ArgumentParser(add_help=False)
     limit_options.add_argument('-N', '--limit', type=int, metavar='NUM', help='Limit lines')
 
-    delete_parser = sp.add_parser('delete', formatter_class=SortingHelpFormatter, help='Delete post')
+    delete_parser = sp.add_parser('delete', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Delete post')
     delete_parser.add_argument('target', type=str, metavar='POST', help='URI(at://...)[::CID]')
 
     follow_parser = sp.add_parser('follow', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Follow')
