@@ -60,26 +60,32 @@ def search(q='*', author=None, since=None, until=None, limit=100, thread=False, 
         # If --thread is specified, expand each post into threads
         if thread:
             thread_data_list = ThreadDataList()
-            seen_uris = set()  # URIs already included in other threads
 
-            # Process in reverse order (oldest first) to prioritize parent posts
-            for item in reversed(post_data_list.items):
-                # Skip if this post is already part of another thread
-                if item.post.uri in seen_uris:
-                    continue
+            # Group posts by their root thread URI
+            thread_groups = {}  # {root_uri: [posts]}
+            root_order = []  # Track order of root URIs for maintaining result order
 
-                # Get thread for each post
+            for item in post_data_list.items:
+                # Determine the root URI of this post's thread
+                if hasattr(item.post.record, 'reply') and item.post.record.reply:
+                    root_uri = item.post.record.reply.root.uri
+                else:
+                    root_uri = item.post.uri  # This post is the root
+
+                # Add to group and track order
+                if root_uri not in thread_groups:
+                    thread_groups[root_uri] = []
+                    root_order.append(root_uri)
+                thread_groups[root_uri].append(item.post)
+
+            # Fetch each thread once using its root URI
+            for root_uri in reversed(root_order):  # Process oldest first
                 thread_response = current_session.get_post_thread(
-                    item.post.uri,
+                    root_uri,
                     depth=thread_depth,
                     parent_height=thread_parent_height
                 )
                 thread_data = ThreadData(thread_response)
-
-                # Mark all URIs in this thread as seen
-                for post, depth in thread_data.posts:
-                    seen_uris.add(post.uri)
-
                 thread_data_list.append(thread_data)
 
             # Reverse to show newest first (matching search result order)
