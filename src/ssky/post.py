@@ -341,24 +341,22 @@ def find_best_split_point(text, start, target_end, all_facets):
             target_end = facet['start']
             break
 
-    # 2. Try sentence boundary
-    sentence_match = None
-    for match in re.finditer(r'[.!?]\s+', text[start:target_end]):
-        sentence_match = match
-    if sentence_match:
-        return start + sentence_match.end()
+    # 2. Try CJK character boundary (prioritized for Japanese/Chinese/Korean text)
+    # Search backwards from target_end for a CJK character
+    # CJK ranges: \u3040-\u309F (Hiragana), \u30A0-\u30FF (Katakana),
+    #             \u4E00-\u9FFF (CJK Unified Ideographs), \uAC00-\uD7AF (Hangul)
+    for i in range(target_end - 1, start, -1):
+        char = text[i]
+        if re.match(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]', char):
+            # Found CJK character, can split after it
+            return i + 1
 
-    # 3. Try paragraph boundary
-    para_pos = text.rfind('\n\n', start, target_end)
-    if para_pos > start:
-        return para_pos + 2
-
-    # 4. Try word boundary
+    # 3. Try word boundary (space) - fallback for non-CJK text
     space_pos = text.rfind(' ', start, target_end)
     if space_pos > start:
         return space_pos + 1
 
-    # 5. Use target_end (already adjusted for facets)
+    # 4. Use target_end (already adjusted for facets)
     return target_end
 
 def adjust_facets_for_part(original_text, part_start, part_end, facets_dict, prefix_len):
