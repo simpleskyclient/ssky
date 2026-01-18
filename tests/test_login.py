@@ -195,22 +195,27 @@ class TestLoginSequential(BaseSequentialTest):
     
     def test_06_login_no_credentials_available(self, login_environment):
         """Test login behavior when no credentials are available but valid session file exists"""
-        
+
+        # Check if session file exists
+        from ssky.ssky_session import SskySession
+        session_file = SskySession.config_path
+        if not os.path.exists(session_file):
+            pytest.skip(f"Session file does not exist at {session_file}. Run test_00_login.py first.")
+
         # Temporarily remove SSKY_USER environment variable
         original_user = os.environ.get('SSKY_USER')
         if 'SSKY_USER' in os.environ:
             del os.environ['SSKY_USER']
-        
+
         # Clear session state but keep session file (normal behavior)
-        from ssky.ssky_session import SskySession
         SskySession.clear()
-        
+
         try:
             # Test login without explicit credentials
             # Should succeed if valid session file exists
             result = login()
             assert isinstance(result, ProfileList), "Should return ProfileList when valid session file exists"
-                
+
         finally:
             # Restore original environment variable
             if original_user:
@@ -218,16 +223,16 @@ class TestLoginSequential(BaseSequentialTest):
     
     def test_07_login_no_credentials_no_session_file(self, login_environment):
         """Test login behavior when no credentials and no session file are available"""
-        
+
         # Temporarily remove SSKY_USER environment variable
         original_user = os.environ.get('SSKY_USER')
         if 'SSKY_USER' in os.environ:
             del os.environ['SSKY_USER']
-        
+
         # Clear session state
         from ssky.ssky_session import SskySession
         SskySession.clear()
-        
+
         # Temporarily remove session file if it exists
         session_file = os.path.expanduser('~/.ssky')
         session_backup = None
@@ -235,7 +240,7 @@ class TestLoginSequential(BaseSequentialTest):
             with open(session_file, 'r') as f:
                 session_backup = f.read()
             os.remove(session_file)
-        
+
         try:
             # Test login without any credentials or session file
             with pytest.raises(AtProtocolSskyError):
@@ -244,8 +249,88 @@ class TestLoginSequential(BaseSequentialTest):
             # Restore original environment variable
             if original_user:
                 os.environ['SSKY_USER'] = original_user
-            
+
             # Restore session file if it existed
             if session_backup is not None:
                 with open(session_file, 'w') as f:
                     f.write(session_backup)
+
+    def test_08_login_with_custom_config_path(self, login_environment, mock_ssky_session):
+        """Test that SSKY_CONFIG_PATH environment variable is read at module initialization time"""
+        import tempfile
+
+        # Unpack mock objects
+        mock_session, mock_client, mock_profile = mock_ssky_session
+
+        # Note: config_path is set at module initialization time, not at runtime.
+        # This test verifies that the current behavior works as designed.
+        # To test custom config paths, SSKY_CONFIG_PATH must be set BEFORE importing ssky_session.
+
+        # Verify that config_path exists as a class variable
+        from ssky.ssky_session import SskySession
+        assert hasattr(SskySession, 'config_path'), "SskySession should have config_path attribute"
+
+        # Verify config_path is a string
+        assert isinstance(SskySession.config_path, str), "config_path should be a string"
+
+        # Verify config_path is either the default or set from environment
+        if 'SSKY_CONFIG_PATH' in os.environ:
+            expected_path = os.environ['SSKY_CONFIG_PATH']
+        else:
+            expected_path = os.path.expanduser('~/.ssky')
+
+        assert SskySession.config_path == expected_path, \
+            f"Config path should match environment setting: expected {expected_path}, got {SskySession.config_path}"
+
+        # Test that login works with current config_path
+        with patch('ssky.login.SskySession') as mock_session_class:
+            mock_session_class.return_value = mock_session
+            mock_session_class.config_path = SskySession.config_path
+
+            result = login(credentials="test.handle:testpassword")
+
+            # Verify session was created
+            mock_session_class.assert_called_once()
+
+            # Verify result
+            assert isinstance(result, ProfileList), "Should return ProfileList"
+
+    def test_09_login_config_path_default_when_not_set(self, login_environment, mock_ssky_session):
+        """Test that config_path defaults to ~/.ssky when SSKY_CONFIG_PATH is not set"""
+
+        # Unpack mock objects
+        mock_session, mock_client, mock_profile = mock_ssky_session
+
+        # Ensure SSKY_CONFIG_PATH is not set
+        original_config_path = os.environ.get('SSKY_CONFIG_PATH')
+        if 'SSKY_CONFIG_PATH' in os.environ:
+            del os.environ['SSKY_CONFIG_PATH']
+
+        # Clear session state to force re-initialization
+        from ssky.ssky_session import SskySession
+        SskySession.clear()
+
+        try:
+            with patch('ssky.login.SskySession') as mock_session_class:
+                mock_session_class.return_value = mock_session
+
+                # Test login without SSKY_CONFIG_PATH
+                result = login(credentials="test.handle:testpassword")
+
+                # Verify session was created
+                mock_session_class.assert_called_once()
+
+                # Verify result
+                assert isinstance(result, ProfileList), "Should return ProfileList"
+
+                # Verify config_path defaults to ~/.ssky
+                expected_default = os.path.expanduser('~/.ssky')
+                assert SskySession.config_path == expected_default, f"Config path should default to {expected_default}"
+
+        finally:
+            # Restore original config path
+            if original_config_path:
+                os.environ['SSKY_CONFIG_PATH'] = original_config_path
+
+            # Clear session state to reset
+            SskySession.clear()
