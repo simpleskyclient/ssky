@@ -11,7 +11,11 @@ class SskySession:
             self.client = client
             self.profile = profile
 
-    config_path = os.path.expanduser('~/.ssky')
+    if 'SSKY_CONFIG_PATH' in os.environ:
+        config_path = os.environ['SSKY_CONFIG_PATH']
+    else:
+        config_path = os.path.expanduser('~/.ssky')
+
     session = None
 
     login_failed = Session()
