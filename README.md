@@ -31,6 +31,21 @@ Or set credentials via environment variable:
 export SSKY_USER=your-handle.bsky.social:your-password
 ```
 
+### Configuration
+
+By default, ssky stores session data in `~/.ssky`. You can customize this location using the `SSKY_CONFIG_PATH` environment variable:
+
+```bash
+# Use a custom session file location
+export SSKY_CONFIG_PATH=/path/to/custom/session
+ssky login your-handle.bsky.social:your-password
+
+# Useful for testing or managing multiple accounts
+export SSKY_CONFIG_PATH=~/.ssky-test
+```
+
+**Note:** The `SSKY_CONFIG_PATH` must be set before running ssky commands, as it's evaluated when the session module is first loaded.
+
 ## 📖 Basic Usage
 
 ### Posting
