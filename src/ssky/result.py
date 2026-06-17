@@ -82,9 +82,11 @@ class SuccessResult:
 class DryRunResult:
     """Represents a dry run result with detailed information about what would be posted."""
     
-    def __init__(self, message: str, tags: list = None, links: list = None, 
-                 mentions: list = None, images: list = None, card: dict = None, 
-                 reply_to: str = None, quote: str = None):
+    def __init__(self, message: str, tags: list = None, links: list = None,
+                 mentions: list = None, images: list = None, card: dict = None,
+                 reply_to: str = None, quote: str = None, langs: list = None,
+                 video: str = None, video_alt: str = None, allow_reply: list = None,
+                 no_quote: bool = False):
         self.message = message
         self.tags = tags or []
         self.links = links or []
@@ -93,6 +95,11 @@ class DryRunResult:
         self.card = card
         self.reply_to = reply_to
         self.quote = quote
+        self.langs = langs or []
+        self.video = video
+        self.video_alt = video_alt
+        self.allow_reply = allow_reply
+        self.no_quote = no_quote
 
     def to_json(self) -> str:
         """Convert to JSON format."""
@@ -111,9 +118,14 @@ class DryRunResult:
             ],
             "card": self.card,
             "reply_to": self.reply_to,
-            "quote": self.quote
+            "quote": self.quote,
+            "langs": self.langs,
+            "video": self.video,
+            "video_alt": self.video_alt,
+            "allow_reply": self.allow_reply,
+            "no_quote": self.no_quote
         }
-        
+
         response = {
             "status": "ok",
             "http_code": 200,
@@ -134,7 +146,11 @@ class DryRunResult:
             "images": len(self.images),
             "has_card": self.card is not None,
             "has_reply_to": self.reply_to is not None,
-            "has_quote": self.quote is not None
+            "has_quote": self.quote is not None,
+            "langs": self.langs,
+            "has_video": self.video is not None,
+            "allow_reply": self.allow_reply,
+            "no_quote": self.no_quote
         }
         
         return json.dumps(data, ensure_ascii=False, separators=(',', ':'))
@@ -168,16 +184,34 @@ class DryRunResult:
                 image_info.append(info)
             items.append(f"Images: {', '.join(image_info)}")
         
+        # Video
+        if self.video:
+            info = self.video
+            if self.video_alt:
+                info += f" (alt: {self.video_alt})"
+            items.append(f"Video: {info}")
+
         # Card
         if self.card:
             items.append(f"Card: {self.card.get('title', 'Unknown')}")
-        
+
         # Reply and Quote
         if self.reply_to:
             items.append(f"Reply to: {self.reply_to}")
         if self.quote:
             items.append(f"Quote: {self.quote}")
-        
+
+        # Languages
+        if self.langs:
+            items.append(f"Languages: {', '.join(self.langs)}")
+
+        # Reply/quote controls
+        if self.allow_reply is not None:
+            who = ', '.join(self.allow_reply) if self.allow_reply else 'nobody'
+            items.append(f"Allow reply: {who}")
+        if self.no_quote:
+            items.append("Quote posts: disabled")
+
         return items
 
     def print(self, format: str, output: str = None, delimiter: str = ' ') -> None:

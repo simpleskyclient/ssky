@@ -152,25 +152,38 @@ def ssky_get(
 
 @mcp.tool()  
 def ssky_post(
-    message: str = "", 
-    dry_run: bool = False, 
-    images: str = "", 
-    quote_uri: str = "", 
-    reply_to_uri: str = "", 
-    delimiter: str = "", 
+    message: str = "",
+    dry_run: bool = False,
+    images: str = "",
+    image_alts: str = "",
+    video: str = "",
+    video_alt: str = "",
+    langs: str = "",
+    quote_uri: str = "",
+    reply_to_uri: str = "",
+    allow_reply: str = "",
+    no_quote: bool = False,
+    delimiter: str = "",
     output_dir: str = ""
 ) -> str:
     """Post message to Bluesky
-    
+
     Args:
         message: The message to post
         dry_run: If True, show what would be posted without actually posting
         images: Comma-separated list of image file paths to attach
+        image_alts: Comma-separated alt texts, in the same order as images
+        video: Path to a video file to attach (cannot be combined with images)
+        video_alt: Alt text for the attached video
+        langs: Comma-separated language codes of the post (e.g. "ja,en")
         quote_uri: URI of post to quote (at://...)
         reply_to_uri: URI of post to reply to (at://...)
+        allow_reply: Comma-separated reply restriction (threadgate): any of
+            nobody, following, follower, mentioned. Empty means everybody
+        no_quote: If True, disallow quote posts of this post (postgate)
         delimiter: Custom delimiter string
         output_dir: Output to files in specified directory
-    
+
     Returns:
         JSON string with post result:
         Success:
@@ -202,14 +215,43 @@ def ssky_post(
         image_paths = [path.strip() for path in images.split(",") if path.strip()]
         for image_path in image_paths:
             args.extend(["--image", image_path])
-    
+
+    # Add image alt texts if specified
+    if image_alts:
+        for alt_text in image_alts.split(","):
+            args.extend(["--alt", alt_text.strip()])
+
+    # Add video if specified
+    if video:
+        args.extend(["--video", video])
+    if video_alt:
+        args.extend(["--video-alt", video_alt])
+
+    # Add language tags if specified
+    if langs:
+        for lang in langs.split(","):
+            lang = lang.strip()
+            if lang:
+                args.extend(["--lang", lang])
+
     # Add quote option if specified
     if quote_uri:
         args.extend(["--quote", quote_uri])
-    
+
     # Add reply-to option if specified
     if reply_to_uri:
         args.extend(["--reply-to", reply_to_uri])
+
+    # Add reply restriction (threadgate) if specified
+    if allow_reply:
+        for who in allow_reply.split(","):
+            who = who.strip()
+            if who:
+                args.extend(["--allow-reply", who])
+
+    # Disallow quote posts (postgate) if requested
+    if no_quote:
+        args.append("--no-quote")
     
     # Always use simple-json for MCP
     args.append("--simple-json")
