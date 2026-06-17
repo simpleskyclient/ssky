@@ -20,6 +20,10 @@ class SskySession:
 
     login_failed = Session()
 
+    # Holds the last AtProtocolError that caused a login failure, so callers
+    # can surface the real reason instead of a generic message.
+    login_error = None
+
     class Status:
         NOT_LOGGED_IN = 0,
         LOGGED_IN = 1,
@@ -59,8 +63,9 @@ class SskySession:
                         cls.session = cls.at_login_internal(handle=handle, password=password)
                         # Auto-persist session after successful login
                         cls.persist_internal()
-                    except atproto_client.exceptions.AtProtocolError:
+                    except atproto_client.exceptions.AtProtocolError as e:
                         cls.session = cls.login_failed
+                        cls.login_error = e
                         # Don't re-raise, let the caller handle the failed session state
                 # Try environment variable (fallback)
                 elif var_user is not None:
@@ -69,8 +74,9 @@ class SskySession:
                         cls.session = cls.at_login_internal(handle=handle, password=password)
                         # Auto-persist session after successful login
                         cls.persist_internal()
-                    except atproto_client.exceptions.AtProtocolError:
+                    except atproto_client.exceptions.AtProtocolError as e:
                         cls.session = cls.login_failed
+                        cls.login_error = e
                         # Don't re-raise, let the caller handle the failed session state
                 else:
                     cls.session = cls.login_failed
@@ -97,6 +103,7 @@ class SskySession:
     @classmethod
     def clear(cls) -> None:
         cls.session = None
+        cls.login_error = None
 
     def __init__(self, handle=None, password=None):
         SskySession.login_internal(handle=handle, password=password)
