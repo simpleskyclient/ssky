@@ -14,13 +14,13 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.14"
+python = ">=3.12,<3.15"
 beautifulsoup4 = "^4.12.3"
 python-dotenv = "^1.0.1"
 requests = "^2.32.3"
-atproto = "^0.0.65"
+atproto = "^0.0.68"
 pytest = "^8.3.4"
-fastmcp = "^2.10.0"
+fastmcp = "^2.14.0"
 
 [tool.poetry.scripts]
 ssky = "ssky.main:main"

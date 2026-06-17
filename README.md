@@ -275,7 +275,7 @@ For development using VS Code Dev Containers:
 2. The dev container automatically:
    - Loads environment variables from `.env.local`
    - Installs Claude Code extension
-   - Sets up Python 3.12 environment with Docker support
+   - Sets up Python 3.14 environment with Docker support
 
 ## 🧪 Testing
 
