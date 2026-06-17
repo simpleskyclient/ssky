@@ -1,31 +1,39 @@
-[tool.poetry]
+[project]
 name = "ssky"
 version = "0.3.0"
 description = "Simple bluesky client"
-authors = ["SimpleSkyClient Project <simpleskypclient@gmail.com>"]
+authors = [
+    {name = "SimpleSkyClient Project", email = "simpleskypclient@gmail.com"}
+]
 readme = "README.md"
-license = "LICENSE"
+license = "MIT"
+keywords = ["bluesky", "client"]
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "beautifulsoup4 (>=4.12.3,<5.0.0)",
+    "requests (>=2.32.3,<3.0.0)",
+    "atproto (>=0.0.68,<0.0.69)",
+    "fastmcp (>=2.14.0,<3.0.0)",
+]
+
+[project.urls]
 homepage = "https://github.com/simpleskyclient/ssky"
 repository = "https://github.com/simpleskyclient/ssky"
-keywords = ["bluesky", "client"]
+
+[project.scripts]
+ssky = "ssky.main:main"
+ssky-mcp-server = "ssky_mcp.server:main"
+
+[tool.poetry]
 packages = [
     {include = "ssky", from = "src"},
     {include = "ssky_mcp", from = "src"}
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.12,<3.14"
-beautifulsoup4 = "^4.12.3"
-python-dotenv = "^1.0.1"
-requests = "^2.32.3"
-atproto = "^0.0.65"
+[tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
-fastmcp = "^2.10.0"
-
-[tool.poetry.scripts]
-ssky = "ssky.main:main"
-ssky-mcp-server = "ssky_mcp.server:main"
+python-dotenv = "^1.0.1"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
