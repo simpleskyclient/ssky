@@ -1,17 +1,18 @@
 import re
 import sys
-from atproto import IdResolver, models
+from atproto import DidInMemoryCache, IdResolver, models
 import atproto_client
 from bs4 import BeautifulSoup
 import requests
 from ssky.ssky_session import ssky_client
 from ssky.post_data_list import PostDataList
 from ssky.result import (
-    DryRunResult, 
+    DryRunResult,
     AtProtocolSskyError,
-    SessionError, 
-    NotFoundError, 
-    TooManyImagesError
+    SessionError,
+    NotFoundError,
+    TooManyImagesError,
+    InvalidOptionCombinationError
 )
 from ssky.util import disjoin_uri_cid, is_joined_uri_cid
 from time import sleep
@@ -20,6 +21,11 @@ import atproto_client.exceptions
 
 # Configure logger for post module
 logger = logging.getLogger(__name__)
+
+# Shared DID cache so repeated handle->DID resolutions (e.g. the same mention
+# resolved across original/modified message passes) hit the cache instead of
+# re-issuing DNS/HTTP lookups.
+_did_cache = DidInMemoryCache()
 
 def get_card(links, warnings=None):
     if warnings is None:
@@ -225,11 +231,13 @@ def get_tags(message):
 
 def get_mentions(message):
     mentions = search_items(message, r'@[\w.]+', 'handle')
-    for key in mentions:
-        name = mentions[key]['handle'][1:]
-        resolver = IdResolver()
-        did = resolver.handle.resolve(name)
-        mentions[key]['did'] = did
+    if mentions:
+        # Reuse a single resolver (with a shared cache) instead of constructing
+        # one per mention.
+        resolver = IdResolver(cache=_did_cache)
+        for key in mentions:
+            name = mentions[key]['handle'][1:]
+            mentions[key]['did'] = resolver.handle.resolve(name)
     return mentions
 
 def get_thumbnail(uri, warnings=None):
@@ -283,6 +291,30 @@ def load_images(image_paths):
             images.append(f.read())
     return images
 
+def load_video(video_path):
+    with open(video_path, 'rb') as f:
+        return f.read()
+
+def build_image_alts(image, alt):
+    """Align alt texts with images by order. Returns None when no images,
+    otherwise a list of the same length as the images (missing alts -> '')."""
+    if not image:
+        return None
+    image_list = image if isinstance(image, list) else [image]
+    alt_list = alt or []
+    return [alt_list[i] if i < len(alt_list) else '' for i in range(len(image_list))]
+
+def build_dry_run_images(image, image_alts):
+    """Build the images structure (path + alt_text dicts) for DryRunResult."""
+    if not image:
+        return []
+    image_list = image if isinstance(image, list) else [image]
+    alts = image_alts or []
+    return [
+        {'path': path, 'alt_text': alts[i] if i < len(alts) else ''}
+        for i, path in enumerate(image_list)
+    ]
+
 def get_post(uri_cid):
     if is_joined_uri_cid(uri_cid):
         uri, cid = disjoin_uri_cid(uri_cid)
@@ -309,6 +341,49 @@ def get_root_strong_ref(post):
         return models.create_strong_ref(post)
     else:
         return retrieved_post.value.reply.root
+
+_THREADGATE_RULES = {
+    'following': models.AppBskyFeedThreadgate.FollowingRule,
+    'follower': models.AppBskyFeedThreadgate.FollowerRule,
+    'mentioned': models.AppBskyFeedThreadgate.MentionRule,
+}
+
+def apply_post_gates(client, post_uri, allow_reply=None, no_quote=False):
+    """Attach threadgate (reply control) and/or postgate (quote control) records
+    to a just-created post.
+
+    Args:
+        client: Authenticated atproto client
+        post_uri: at:// URI of the root post
+        allow_reply: None for no restriction (everybody). A list of
+            {'nobody','following','follower','mentioned'} otherwise; 'nobody'
+            (or an empty rule set) means no one can reply.
+        no_quote: When True, disallow quote posts of this post.
+    """
+    from datetime import datetime, timezone
+
+    # at://<did>/app.bsky.feed.post/<rkey>
+    parts = post_uri.split('/')
+    repo = parts[2]
+    rkey = parts[-1]
+    created_at = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+    if allow_reply is not None:
+        allow = [_THREADGATE_RULES[who]() for who in allow_reply if who in _THREADGATE_RULES]
+        record = models.AppBskyFeedThreadgate.Record(
+            post=post_uri,
+            allow=allow,
+            created_at=created_at
+        )
+        client.app.bsky.feed.threadgate.create(repo, record, rkey=rkey)
+
+    if no_quote:
+        record = models.AppBskyFeedPostgate.Record(
+            post=post_uri,
+            embedding_rules=[models.AppBskyFeedPostgate.DisableRule()],
+            created_at=created_at
+        )
+        client.app.bsky.feed.postgate.create(repo, record, rkey=rkey)
 
 # Thread splitting constants and functions
 THREAD_MAX_CHARS = 285  # Effective limit per post (excluding prefix and continuation marks)
@@ -514,15 +589,23 @@ def split_text_with_facets(text, links_dict, mentions_dict, tags_dict, max_chars
 
     return result
 
-def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, warnings=None):
+def post_as_thread(parts_with_facets, images=None, image_alts=None, video=None,
+                   video_alt=None, reply_to=None, quote=None, langs=None,
+                   allow_reply=None, no_quote=False, warnings=None):
     """
     Post multiple parts as a thread.
 
     Args:
         parts_with_facets: Output from split_text_with_facets()
         images: Images to attach (only to first post)
+        image_alts: Alt texts for images (only to first post)
+        video: Video bytes to attach (only to first post)
+        video_alt: Alt text for the video
         reply_to: Optional reply target
         quote: Optional quote target
+        langs: Optional list of language codes applied to every post
+        allow_reply: Optional reply restriction (threadgate) for the root post
+        no_quote: When True, disallow quote posts of the root post (postgate)
         warnings: Warning list to append to
 
     Returns:
@@ -530,6 +613,7 @@ def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, wa
     """
     if warnings is None:
         warnings = []
+    langs = langs or None
 
     client = ssky_client()
     posted = []
@@ -598,6 +682,21 @@ def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, wa
                         cid=source.cid
                     )
                 )
+            elif video:
+                # Handle video
+                result = client.send_video(
+                    text=text,
+                    facets=facets if facets else None,
+                    video=video,
+                    video_alt=video_alt,
+                    langs=langs,
+                    reply_to=reply_to
+                )
+                root_ref = models.create_strong_ref(result)
+                parent_ref = root_ref
+                posted.append(result)
+                sleep(0.5)
+                continue
             elif images:
                 # Handle images
                 images_data = load_images(images if isinstance(images, list) else [images])
@@ -605,6 +704,8 @@ def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, wa
                     text=text,
                     facets=facets if facets else None,
                     images=images_data,
+                    image_alts=image_alts,
+                    langs=langs,
                     reply_to=reply_to
                 )
                 root_ref = models.create_strong_ref(result)
@@ -627,12 +728,14 @@ def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, wa
                 text=text,
                 facets=facets if facets else None,
                 embed=embed,
+                langs=langs,
                 reply_to=current_reply_to
             )
         else:
             result = client.send_post(
                 text=text,
                 facets=facets if facets else None,
+                langs=langs,
                 reply_to=current_reply_to
             )
 
@@ -643,6 +746,10 @@ def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, wa
 
         posted.append(result)
         sleep(0.5)
+
+    # Apply reply/quote controls to the root post
+    if posted and (allow_reply is not None or no_quote):
+        apply_post_gates(client, posted[0].uri, allow_reply=allow_reply, no_quote=no_quote)
 
     # Wait for all posts to be available
     result_posts = []
@@ -663,13 +770,22 @@ def post_as_thread(parts_with_facets, images=None, reply_to=None, quote=None, wa
 
     return post_list
 
-def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_split=False, **kwargs):
+def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_split=False,
+         alt=None, lang=None, video=None, video_alt=None, allow_reply=None, no_quote=False,
+         **kwargs):
     warnings = []  # Collect warnings during processing
 
     try:
         current_session = ssky_client()
         if current_session is None:
             raise SessionError()
+
+        # Normalize new options
+        langs = lang or None
+        if video and image:
+            raise InvalidOptionCombinationError("Cannot combine --video with --image")
+        image_alts = build_image_alts(image, alt)
+        video_data = load_video(video) if video else None
 
         # Process message and extract facets
         if message:
@@ -752,11 +868,8 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_spli
                     for part in parts:
                         preview_parts.append(part['text'])
 
-                    images_list = []
-                    if image:
-                        images_list = image if isinstance(image, list) else [image]
-                        if len(images_list) > 4:
-                            raise TooManyImagesError()
+                    if image and len(image if isinstance(image, list) else [image]) > 4:
+                        raise TooManyImagesError()
 
                     # Return dry run result with thread preview
                     return DryRunResult(
@@ -764,18 +877,29 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_spli
                         tags=tags,
                         links=links,
                         mentions=mentions,
-                        images=images_list,
+                        images=build_dry_run_images(image, image_alts),
                         card=None,
                         reply_to=reply_to,
-                        quote=quote
+                        quote=quote,
+                        langs=langs,
+                        video=video,
+                        video_alt=video_alt,
+                        allow_reply=allow_reply,
+                        no_quote=no_quote
                     )
 
                 # Post as thread
                 return post_as_thread(
                     parts,
                     images=image,
+                    image_alts=image_alts,
+                    video=video_data,
+                    video_alt=video_alt,
                     reply_to=reply_to,
                     quote=quote,
+                    langs=langs,
+                    allow_reply=allow_reply,
+                    no_quote=no_quote,
                     warnings=warnings
                 )
 
@@ -796,23 +920,23 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_spli
         
         # Handle dry run
         if dry:
-            # Build preview data
-            images_list = []
-            
-            if image:
-                images_list = image if isinstance(image, list) else [image]
-                if len(images_list) > 4:
-                    raise TooManyImagesError()
-            
+            if image and len(image if isinstance(image, list) else [image]) > 4:
+                raise TooManyImagesError()
+
             return DryRunResult(
                 message=message or "",
                 tags=tags,
                 links=links,
                 mentions=mentions,
-                images=images_list,
+                images=build_dry_run_images(image, image_alts),
                 card=card,
                 reply_to=reply_to,
-                quote=quote
+                quote=quote,
+                langs=langs,
+                video=video,
+                video_alt=video_alt,
+                allow_reply=allow_reply,
+                no_quote=no_quote
             )
         
         # Validate inputs
@@ -879,7 +1003,17 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_spli
                     cid = source.cid
                 )
             )
-            result = current_session.send_post(text=message or "", facets=facets, embed=embed_record, reply_to=reply_ref)
+            result = current_session.send_post(text=message or "", facets=facets, embed=embed_record, langs=langs, reply_to=reply_ref)
+        elif video_data is not None:
+            # Handle video with send_video method
+            result = current_session.send_video(
+                text=message or "",
+                facets=facets,
+                video=video_data,
+                video_alt=video_alt,
+                langs=langs,
+                reply_to=reply_ref
+            )
         elif image:
             # Handle images with send_images method
             images = load_images(image if isinstance(image, list) else [image])
@@ -887,6 +1021,8 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_spli
                 text=message or "",
                 facets=facets,
                 images=images,
+                image_alts=image_alts,
+                langs=langs,
                 reply_to=reply_ref
             )
         else:
@@ -894,9 +1030,14 @@ def post(message=None, image=None, dry=False, reply_to=None, quote=None, no_spli
             result = current_session.send_post(
                 text=message or "",
                 facets=facets,
+                langs=langs,
                 reply_to=reply_ref
             )
-        
+
+        # Apply reply/quote controls
+        if allow_reply is not None or no_quote:
+            apply_post_gates(current_session, result.uri, allow_reply=allow_reply, no_quote=no_quote)
+
         # Wait for post to be available and return it
         post = get_post(result.uri)
         while post is None:

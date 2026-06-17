@@ -441,3 +441,96 @@ class TestPostDeleteSequential:
         mentions_empty = get_mentions(message_no_mentions)
         assert len(mentions_empty) == 0
 
+
+class TestPostNewOptions:
+    """Tests for langs, image alt text, video, and reply/quote controls."""
+
+    def _mock_client(self):
+        from tests.common import create_mock_ssky_session
+        mock_session, mock_client, mock_profile = create_mock_ssky_session()
+
+        for attr in ('send_post', 'send_images', 'send_video'):
+            resp = Mock()
+            resp.uri = "at://did:plc:test123/app.bsky.feed.post/test123"
+            resp.cid = "testcid123"
+            getattr(mock_client, attr).return_value = resp
+
+        retrieved = Mock()
+        retrieved.uri = "at://did:plc:test123/app.bsky.feed.post/test123"
+        retrieved.cid = "testcid123"
+        retrieved.author = Mock()
+        retrieved.author.did = "did:plc:test123"
+        retrieved.author.handle = "test.bsky.social"
+        retrieved.record = Mock()
+        retrieved.record.text = "Test"
+        posts_resp = Mock()
+        posts_resp.posts = [retrieved]
+        mock_client.get_posts.return_value = posts_resp
+        return mock_client
+
+    def test_dry_run_lang(self):
+        result = post(message="Hello", lang=["ja", "en"], dry=True)
+        assert isinstance(result, DryRunResult)
+        assert result.langs == ["ja", "en"]
+        assert "Languages: ja, en" in result.to_list()
+
+    def test_dry_run_image_alt(self):
+        result = post(message="pic", image=["a.png", "b.png"], alt=["first"], dry=True)
+        assert isinstance(result, DryRunResult)
+        assert result.images[0]["alt_text"] == "first"
+        assert result.images[1]["alt_text"] == ""
+
+    def test_dry_run_allow_reply_and_no_quote(self):
+        result = post(message="locked", allow_reply=["following", "mentioned"], no_quote=True, dry=True)
+        assert isinstance(result, DryRunResult)
+        assert result.allow_reply == ["following", "mentioned"]
+        assert result.no_quote is True
+        items = result.to_list()
+        assert "Allow reply: following, mentioned" in items
+        assert "Quote posts: disabled" in items
+
+    def test_video_image_mutually_exclusive(self):
+        from ssky.result import InvalidOptionCombinationError
+        with patch('ssky.post.ssky_client') as mock_ssky_client:
+            mock_ssky_client.return_value = self._mock_client()
+            with pytest.raises(InvalidOptionCombinationError):
+                post(message="x", image=["a.png"], video="v.mp4")
+
+    def test_video_post_calls_send_video(self, tmp_path):
+        video_file = tmp_path / "clip.mp4"
+        video_file.write_bytes(b"fakevideo")
+        client = self._mock_client()
+        with patch('ssky.post.ssky_client') as mock_ssky_client:
+            mock_ssky_client.return_value = client
+            result = post(message="watch", video=str(video_file), video_alt="a clip", lang=["en"])
+            assert isinstance(result, PostDataList)
+            client.send_video.assert_called_once()
+            kwargs = client.send_video.call_args.kwargs
+            assert kwargs["video"] == b"fakevideo"
+            assert kwargs["video_alt"] == "a clip"
+            assert kwargs["langs"] == ["en"]
+
+    def test_image_post_passes_alts_and_langs(self, tmp_path):
+        img = tmp_path / "p.png"
+        img.write_bytes(b"img")
+        client = self._mock_client()
+        with patch('ssky.post.ssky_client') as mock_ssky_client:
+            mock_ssky_client.return_value = client
+            result = post(message="pic", image=[str(img)], alt=["alt text"], lang=["ja"])
+            assert isinstance(result, PostDataList)
+            kwargs = client.send_images.call_args.kwargs
+            assert kwargs["image_alts"] == ["alt text"]
+            assert kwargs["langs"] == ["ja"]
+
+    def test_allow_reply_creates_threadgate(self):
+        client = self._mock_client()
+        with patch('ssky.post.ssky_client') as mock_ssky_client:
+            mock_ssky_client.return_value = client
+            result = post(message="locked", allow_reply=["nobody"], no_quote=True)
+            assert isinstance(result, PostDataList)
+            client.app.bsky.feed.threadgate.create.assert_called_once()
+            client.app.bsky.feed.postgate.create.assert_called_once()
+            # 'nobody' => empty allow rule list
+            tg_record = client.app.bsky.feed.threadgate.create.call_args.args[1]
+            assert tg_record.allow == []
+

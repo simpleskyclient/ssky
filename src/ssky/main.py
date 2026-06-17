@@ -60,11 +60,17 @@ def parse():
 
     post_parser = sp.add_parser('post', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Post a message to the timeline')
     post_parser.add_argument('message', nargs='?', type=str, help='The message to post')
+    post_parser.add_argument('--alt', action='append', type=str, default=[], metavar='TEXT', help='Alt text for an image (repeat in the same order as -i)')
+    post_parser.add_argument('--allow-reply', action='append', type=str, default=None, dest='allow_reply', choices=['nobody', 'following', 'follower', 'mentioned'], metavar='WHO', help='Restrict who can reply (threadgate); repeatable. Omit for everybody')
     post_parser.add_argument('-d', '--dry', action='store_true', help='Dry run')
     post_parser.add_argument('-i', '--image', action='append', type=str, default=[], metavar='PATH', help='Image files to attach')
+    post_parser.add_argument('--lang', action='append', type=str, default=[], metavar='LANG', help='Language code of the post (repeatable, e.g. ja, en)')
+    post_parser.add_argument('--no-quote', action='store_true', dest='no_quote', help='Disallow quote posts of this post (postgate)')
     post_parser.add_argument('--no-split', action='store_true', dest='no_split', help='Disable automatic thread splitting for long posts')
     post_parser.add_argument('-q', '--quote', type=str, default=None, metavar='URI', help='Quote a post')
     post_parser.add_argument('-r', '--reply-to', type=str, default=None, metavar='URI', help='Reply to a post')
+    post_parser.add_argument('-v', '--video', type=str, default=None, metavar='PATH', help='Video file to attach (cannot be combined with -i)')
+    post_parser.add_argument('--video-alt', type=str, default=None, dest='video_alt', metavar='TEXT', help='Alt text for the attached video')
 
     profile_parser = sp.add_parser('profile', formatter_class=SortingHelpFormatter, parents=[delimiter_options, format_options], help='Show profile')
     profile_parser.add_argument('actor', type=str, metavar='NAME', help='Handle, DID, or "myself" to show')

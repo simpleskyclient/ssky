@@ -54,14 +54,24 @@ export SSKY_CONFIG_PATH=~/.ssky-test
 # Simple post
 ssky post "Hello, Bluesky!"
 
-# Post with images
-ssky post "Check out these photos!" --image photo1.jpg --image photo2.jpg
+# Post with images (add alt text in the same order as --image)
+ssky post "Check out these photos!" --image photo1.jpg --image photo2.jpg --alt "a cat" --alt "a dog"
+
+# Post a video
+ssky post "My clip" --video clip.mp4 --video-alt "a short clip"
+
+# Tag the language(s) of the post
+ssky post "こんにちは" --lang ja
 
 # Reply to a post
 ssky post "Great post!" --reply-to at://did:plc:.../app.bsky.feed.post/...
 
 # Quote a post
 ssky post "Interesting!" --quote at://did:plc:.../app.bsky.feed.post/...
+
+# Restrict who can reply (threadgate) and disable quote posts (postgate)
+ssky post "Announcement" --allow-reply following --allow-reply mentioned --no-quote
+ssky post "Private thought" --allow-reply nobody
 ```
 
 ### Reading
