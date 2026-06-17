@@ -26,6 +26,10 @@ def login(credentials=None, **kwargs) -> ProfileList:
 
         profile = session.profile()
         if profile is None or not hasattr(profile, 'did') or profile.did is None:
+            # Surface the real authentication error if login actually failed,
+            # instead of a generic "profile not available" message.
+            if SskySession.login_error is not None:
+                raise AtProtocolSskyError(SskySession.login_error) from SskySession.login_error
             raise ProfileUnavailableAfterLoginError()
         
         return ProfileList().append(profile.did)
