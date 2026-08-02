@@ -137,14 +137,14 @@ def execute(subcommand, args) -> bool:
         print(e, file=sys.stderr)
         return False
     except BrokenPipeError:
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, sys.stdout.fileno())
-        return False
+        return 141
     except Exception as e:
         print(str(e), file=sys.stderr)
         return False
 
 def setup():
+    if hasattr(signal, 'SIGPIPE'):
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
     signal.signal(signal.SIGINT, lambda num, frame: sys.exit(1))
     sys.stdin = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8')
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=False)
@@ -161,6 +161,8 @@ def main() -> int:
     setup()
     subcommand, args = parse()
     status = execute(subcommand, args)
+    if isinstance(status, int) and not isinstance(status, bool):
+        return status
     return 0 if status is True else 1
 
 if __name__ == '__main__':

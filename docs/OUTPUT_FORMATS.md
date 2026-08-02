@@ -63,8 +63,7 @@ command, not of the flags:
   today; defining one is #82.
 - Human-readable formats write errors to **stderr**. JSON formats write errors to
   **stdout** — see [Known divergences](#known-divergences) and #83.
-- A closed downstream pipe is caught (`BrokenPipeError` in `main.execute()`) and produces
-  no traceback, but the resulting exit code varies with payload size — see #84.
+- A closed downstream pipe is handled cleanly (`SIG_DFL` set for `SIGPIPE` and `BrokenPipeError` caught in `main.execute()`), producing no traceback on stderr and exiting with code `141` (`128 + SIGPIPE`).
 
 ## 4. The matrix
 
