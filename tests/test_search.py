@@ -52,6 +52,18 @@ def mock_search_environment():
     
     return mock_session, mock_client, mock_profile
 
+@pytest.fixture
+def mock_search_client():
+    """Mocked client for tests that must run whether or not credentials are present"""
+    mock_post = Mock()
+    mock_post.uri = "at://test.user/app.bsky.feed.post/test123"
+    mock_post.cid = "testcid123"
+
+    mock_client = Mock()
+    mock_client.app.bsky.feed.search_posts.return_value = Mock(posts=[mock_post])
+
+    return mock_client
+
 class TestSearchSequential:
     """Sequential search tests using mocked SskySession
     
@@ -207,3 +219,12 @@ class TestSearchSequential:
             result = search(query, format='json')
             
             assert isinstance(result, PostDataList), "Search should return PostDataList with JSON format"
+
+    def test_09_search_message_verb_is_retrieved(self, mock_search_client):
+        """Test search reports Retrieved, not Posted (#93)"""
+        with patch('ssky.search.ssky_client') as mock_ssky_client:
+            mock_ssky_client.return_value = mock_search_client
+
+            result = search('test')
+
+            assert result.get_message() == "Retrieved 1 item(s)", "Search should report Retrieved"

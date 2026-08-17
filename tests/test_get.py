@@ -49,6 +49,23 @@ def mock_get_environment():
     
     return mock_session, mock_client, mock_profile
 
+@pytest.fixture
+def mock_get_client():
+    """Mocked client for tests that must run whether or not credentials are present"""
+    mock_post = Mock()
+    mock_post.uri = "at://test.user/app.bsky.feed.post/test123"
+    mock_post.cid = "testcid123"
+
+    mock_feed_post = Mock()
+    mock_feed_post.post = mock_post
+
+    mock_client = Mock()
+    mock_client.get_timeline.return_value = Mock(feed=[mock_feed_post])
+    mock_client.get_author_feed.return_value = Mock(feed=[mock_feed_post])
+    mock_client.get_posts.return_value = Mock(posts=[mock_post])
+
+    return mock_client
+
 class TestGetSequential:
     """Sequential tests for get functionality using mocked SskySession"""
     
@@ -178,3 +195,17 @@ class TestGetSequential:
 
             result = get(param=None, format='json')
             assert isinstance(result, PostDataList), "Get with JSON format should return PostDataList"
+
+    def test_10_get_message_verb_is_retrieved(self, mock_get_client):
+        """Test every get path reports Retrieved, not Posted (#93)"""
+        with patch('ssky.get.ssky_client') as mock_ssky_client:
+            mock_ssky_client.return_value = mock_get_client
+
+            targets = {
+                'timeline': None,
+                'author feed': 'did:plc:test123',
+                'posts': 'at://test.user/app.bsky.feed.post/test123',
+            }
+            for path, target in targets.items():
+                result = get(target=target)
+                assert result.get_message() == "Retrieved 1 item(s)", f"Get {path} should report Retrieved"

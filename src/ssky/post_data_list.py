@@ -209,9 +209,10 @@ class PostDataList:
     def get_default_delimiter(cls) -> str:
         return cls.default_delimiter
 
-    def __init__(self, default_delimiter: str = None) -> None:
+    def __init__(self, default_delimiter: str = None, message_verb: str = "Posted") -> None:
         self.items = []
         self.warnings = []  # Add warnings list
+        self.message_verb = message_verb
         if default_delimiter is not None:
             self.default_delimiter = default_delimiter
 
@@ -276,7 +277,7 @@ class PostDataList:
 
     def get_message(self) -> str:
         """Get message including warnings if any."""
-        base_message = f"Posted {len(self.items)} item(s)"
+        base_message = f"{self.message_verb} {len(self.items)} item(s)"
         if self.warnings:
             warning_text = "; ".join(self.warnings)
             return f"{base_message} (Warnings: {warning_text})"

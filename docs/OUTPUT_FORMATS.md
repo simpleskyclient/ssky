@@ -88,7 +88,7 @@ Cells reading *same as Short* mean the format argument is ignored for that resul
 `DryRunResult`, emit a single object built by `util.create_json_response()`:
 
 ```json
-{"status":"ok","http_code":200,"message":"Posted 3 item(s)","timestamp":"2026-08-02T07:17:00.429887Z","data":[...]}
+{"status":"ok","http_code":200,"message":"Retrieved 3 item(s)","timestamp":"2026-08-02T07:17:00.429887Z","data":[...]}
 ```
 
 Field order is fixed as `status`, `http_code`, `message`, `timestamp`, `data`. Serialized
@@ -96,7 +96,9 @@ with `ensure_ascii=False` and `separators=(',', ':')` — no spaces, non-ASCII e
 
 - `status` — `"ok"` or `"error"`. **Not** `"success"`.
 - `http_code` — 200 on success; on error the code carried by the `SskyError` subclass.
-- `message` — human-readable summary. Not machine-stable; do not parse it.
+- `message` — human-readable summary. For `PostDataList` the verb reflects the operation:
+  `Posted N item(s)` from `post`, `Retrieved N item(s)` from `get` and `search`. Not
+  machine-stable; do not parse it.
 - `timestamp` — UTC ISO-8601 with `Z`, generated at print time. **Non-deterministic**, so
   golden-file tests must mask this field.
 - `data` — payload; `null` on error.
@@ -336,11 +338,10 @@ deltas to work through.
 | 2 | Errors go to stdout under `-J`/`-S` | payload-only stdout, or an explicit documented exception | #83 |
 | 3 | A custom delimiter is not escaped in Short; `-D ,` on a display name containing `,` produces an unparseable line | specified escaping, or a NUL-delimited mode | #85 |
 | 4 | An absent `display_name` yields an empty field, so a space-delimited Short line silently loses a column | a placeholder, or a documented rule | #85 |
-| 5 | `PostDataList` envelope message reads `Posted N item(s)` even for `get` and `search` | wording that matches the operation | #93 |
-| 6 | `DryRunResult` inverts the convention: `-S` bare and lossy, `-J` enveloped | `-S` enveloped like every other type | #94 |
-| 7 | `SuccessResult` ignores `-I`/`-T`/`-L`, so `ssky delete <uri> -I` prints prose instead of the URI | `-I` yields the affected identifier | #95 |
-| 8 | `-O` creates the directory for threads but not for posts or profiles | create it in all cases, or fail the same way in all cases | #96 |
-| 9 | Dead branch: `ThreadData._print_to_stdout` tests `format in ('long','text')` inside the branch that only runs for `''` and `'id'` | remove, or restore the intended separator | #96 |
+| 5 | `DryRunResult` inverts the convention: `-S` bare and lossy, `-J` enveloped | `-S` enveloped like every other type | #94 |
+| 6 | `SuccessResult` ignores `-I`/`-T`/`-L`, so `ssky delete <uri> -I` prints prose instead of the URI | `-I` yields the affected identifier | #95 |
+| 7 | `-O` creates the directory for threads but not for posts or profiles | create it in all cases, or fail the same way in all cases | #96 |
+| 8 | Dead branch: `ThreadData._print_to_stdout` tests `format in ('long','text')` inside the branch that only runs for `''` and `'id'` | remove, or restore the intended separator | #96 |
 
 Two further notes that are documentation rather than code:
 

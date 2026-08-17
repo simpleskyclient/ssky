@@ -683,4 +683,12 @@ class TestPostDataList:
         assert "https://example.com/unicode-test" in processed_text
         assert "example.com/..." not in processed_text
 
- 
+def test_post_data_list_get_message_with_custom_verb(mock_post_data_environment):
+    """Test PostDataList get_message with a custom message verb"""
+    env = mock_post_data_environment
+    post_list = PostDataList(message_verb="Retrieved")
+
+    post_list.append(env['mock_post1'])
+    post_list.append(env['mock_post2'])
+
+    assert post_list.get_message() == "Retrieved 2 item(s)"

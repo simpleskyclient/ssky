@@ -13,7 +13,7 @@ from ssky.util import disjoin_uri_cid, is_joined_uri_cid
 
 def get_posts(client, uri, cid) -> None:
     res = client.get_posts([uri])
-    post_data_list = PostDataList()
+    post_data_list = PostDataList(message_verb="Retrieved")
     for post in res.posts:
         if post.uri == uri and (cid is None or post.cid == cid):
             post_data_list.append(post)
@@ -21,14 +21,14 @@ def get_posts(client, uri, cid) -> None:
 
 def get_author_feed(client, user, limit=100) -> None:
     res = client.get_author_feed(user, limit=limit)
-    post_data_list = PostDataList()
+    post_data_list = PostDataList(message_verb="Retrieved")
     for feed_post in res.feed:
         post_data_list.append(feed_post.post)
     return post_data_list
 
 def get_timeline(client, limit=100) -> None:
     res = client.get_timeline(limit=limit)
-    post_data_list = PostDataList()
+    post_data_list = PostDataList(message_verb="Retrieved")
     for feed_post in res.feed:
         post_data_list.append(feed_post.post)
     return post_data_list

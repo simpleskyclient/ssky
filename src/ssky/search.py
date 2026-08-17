@@ -52,7 +52,7 @@ def search(q='*', author=None, since=None, until=None, limit=100, thread=False, 
             )
         )
 
-        post_data_list = PostDataList()
+        post_data_list = PostDataList(message_verb="Retrieved")
         if res.posts and len(res.posts) > 0:
             for post in res.posts:
                 post_data_list.append(post)
