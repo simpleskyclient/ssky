@@ -81,18 +81,41 @@ For development using VS Code Dev Containers:
 
 2. Run the tests:
    ```bash
-   poetry run pytest --tb=short             # the whole suite
+   poetry run pytest --tb=short             # the default tier
    poetry run pytest tests/test_login.py -v # a single file
    ```
 
-Parts of the suite call the real Bluesky API. To skip those:
+### Test tiers
+
+The default run needs no credentials and no network, and it never touches a live
+account. Tests that do are marked and excluded unless you ask for them:
 
 ```bash
-SSKY_SKIP_REAL_API_TESTS=1 poetry run pytest
+poetry run pytest                                  # default: no network, no writes
+poetry run pytest -m 'real_api and not write_api'  # reads from the live API
+poetry run pytest -m write_api                     # creates and deletes real records
+poetry run pytest -m real_api                      # both
 ```
 
-Tests preserve your `~/.ssky` session file via `conftest.py`. Never delete it from
+`write_api` tests really post, follow, and repost. Selecting them is not enough to run
+them: they also require `SSKY_TEST_ACCOUNT_DID` in `tests/.env` to match the DID of the
+account you are logged in as, and they skip otherwise. Set it to a dedicated test
+account, never your own. The follow test additionally needs `SSKY_TEST_FOLLOW_TARGET`,
+which it really follows and then unfollows — point it at another account you control,
+because the target gets a notification on every run.
+
+`SSKY_SKIP_REAL_API_TESTS=1` still suppresses the whole real-API tier and will keep
+working for one release, but the markers are the mechanism now.
+
+Real logins are rate-limited by Bluesky, so the suite logs in once and reuses the
+session: `conftest.py` backs up and restores your `~/.ssky` file. Never delete it from
 production code.
+
+### What CI covers
+
+Nothing yet — there is no workflow running the tests, so a pull request gets no
+automated signal. Adding one, and gating releases on it, is tracked in #107; the default
+tier above is what it will run. Until then, run the tests locally before opening a PR.
 
 ## Pull requests
 

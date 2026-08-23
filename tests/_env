@@ -2,6 +2,16 @@ SSKY_USER=YOUR_HANDLE:YOUR_PASSWORD
 SSKY_HANDLE=YOUR_HANDLE
 SSKY_PASSWORD=YOUR_PASSWORD
 
+# The account the write tests are allowed to mutate. Write tests refuse to run
+# unless the logged-in session's DID matches this exactly. A DID rather than a
+# handle, because a handle can be reassigned. Leave unset to keep writes off.
+SSKY_TEST_ACCOUNT_DID=did:plc:d7deqn7qrqk63kaspctbv5hn
+
+# The account the follow test really follows and then unfollows. Use an account
+# you control: it receives a follow notification on every run. The test skips if
+# the test account already follows it.
+SSKY_TEST_FOLLOW_TARGET=YOUR_OTHER_HANDLE
+
 SSKY_TEST_HANDLE=bsky.app
 SSKY_TEST_DID=did:plc:d7deqn7qrqk63kaspctbv5hn
 SSKY_TEST_URI=at://did:plc:d7deqn7qrqk63kaspctbv5hn/app.bsky.feed.post/3lfm7dgyvik2g
