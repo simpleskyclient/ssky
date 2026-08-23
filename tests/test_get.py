@@ -69,6 +69,7 @@ def mock_get_client():
 class TestGetSequential:
     """Sequential tests for get functionality using mocked SskySession"""
     
+    @pytest.mark.real_api
     def test_01_real_get_timeline(self):
         """Real API test - get timeline (only real API test in this file)"""
         # Skip if no credentials available
@@ -82,6 +83,7 @@ class TestGetSequential:
         finally:
             SskySession.clear()
     
+    @pytest.mark.needs_session
     def test_02_get_myself(self, mock_get_environment):
         """Test get my own posts using mocked session"""
         mock_session, mock_client, mock_profile = mock_get_environment
@@ -92,6 +94,7 @@ class TestGetSequential:
             result = get(target='myself')
             assert isinstance(result, PostDataList), "Get myself should return PostDataList"
     
+    @pytest.mark.needs_session
     def test_03_get_with_actor_handle(self, mock_get_environment):
         """Test get posts by actor handle"""
         mock_session, mock_client, mock_profile = mock_get_environment

@@ -16,6 +16,7 @@ class TestSskySessionSequential(BaseSequentialTest):
     and create session backup for other tests to use.
     """
     
+    @pytest.mark.real_api
     def test_01_session_login_and_persistence(self):
         """Test SskySession login with real credentials and session persistence
         
@@ -130,6 +131,7 @@ class TestSskySessionSequential(BaseSequentialTest):
         # Cleanup
         SskySession.clear()
     
+    @pytest.mark.real_api
     def test_03_session_error_handling(self):
         """Test SskySession error handling with invalid credentials"""
         
@@ -158,6 +160,7 @@ class TestSskySessionSequential(BaseSequentialTest):
         # Cleanup
         SskySession.clear()
     
+    @pytest.mark.real_api
     def test_04_session_without_credentials(self):
         """Test SskySession behavior when no credentials are available"""
         

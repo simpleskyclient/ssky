@@ -152,6 +152,7 @@ class TestGetWithThreadSequential:
             with pytest.raises(InvalidOptionCombinationError):
                 get(target=None, thread=True, format='simple_json')
 
+    @pytest.mark.needs_session
     def test_04_get_author_feed_with_thread(self, mock_thread_environment):
         """Test get author feed with --thread option"""
         mock_session, mock_client, mock_profile, mock_post, mock_reply = mock_thread_environment

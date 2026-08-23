@@ -40,6 +40,7 @@ class TestUserSequential:
     This reduces API calls and avoids rate limits.
     """
     
+    @pytest.mark.real_api
     def test_01_real_user_search(self):
         """Real API test - basic user search functionality (only real API test in this file)"""
         # Skip if no credentials available
@@ -98,6 +99,7 @@ class TestUserSequential:
             assert isinstance(result, ProfileList), "User search should return ProfileList even with no results"
             assert len(result) == 0, "Should return empty results"
     
+    @pytest.mark.needs_session
     def test_04_user_search_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available

@@ -2,7 +2,7 @@ import os
 import shutil
 import tempfile
 from time import sleep
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from unittest.mock import Mock, patch
 
 from ssky.ssky_session import SskySession
@@ -50,6 +50,18 @@ def setup_with_session_copy(master_session_path, envs_to_delete=[]):
         shutil.copy2(master_session_path, session_path)
 
 
+
+def read_test_config(name, default=None):
+    """Read a test-only setting, preferring the environment over tests/.env.
+
+    Deliberately does not load tests/.env over the environment: see the note in
+    conftest.require_test_account. Values read here configure the tests themselves,
+    never which account ssky authenticates as.
+    """
+    value = os.environ.get(name)
+    if value:
+        return value
+    return dotenv_values('tests/.env').get(name) or default
 
 def has_credentials():
     """Check if SSKY_USER credentials are available"""

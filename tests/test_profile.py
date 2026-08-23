@@ -43,6 +43,7 @@ class TestProfileSequential:
     Strategy: Mock SskySession to avoid API calls while testing profile function logic
     """
     
+    @pytest.mark.needs_session
     def test_01_profile_by_handle(self, mock_profile_environment, mock_profile_response):
         """Test get profile by handle using mocked session"""
         
@@ -66,6 +67,7 @@ class TestProfileSequential:
             mock_client.get_profile.assert_called_once()
             
     
+    @pytest.mark.needs_session
     def test_02_profile_by_did(self, mock_profile_environment, mock_profile_response):
         """Test get profile by DID using mocked session"""
         
@@ -89,6 +91,7 @@ class TestProfileSequential:
             mock_client.get_profile.assert_called_once()
         
     
+    @pytest.mark.needs_session
     def test_03_profile_invalid_handle(self, mock_profile_environment):
         """Test get profile with invalid handle"""
         
@@ -108,6 +111,7 @@ class TestProfileSequential:
                 profile(invalid_handle)
         
     
+    @pytest.mark.needs_session
     def test_04_profile_invalid_did(self, mock_profile_environment):
         """Test get profile with invalid DID"""
         
@@ -127,6 +131,7 @@ class TestProfileSequential:
                 profile(invalid_did)
         
     
+    @pytest.mark.needs_session
     def test_05_profile_error_scenarios(self):
         """Test error handling scenarios"""
         
@@ -144,6 +149,7 @@ class TestProfileSequential:
             profile("")
         
     
+    @pytest.mark.needs_session
     def test_06_profile_with_json_format(self, mock_profile_environment, mock_profile_response):
         """Test profile with JSON format output"""
         

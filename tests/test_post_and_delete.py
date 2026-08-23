@@ -60,6 +60,7 @@ class TestPostDeleteSequential:
     This reduces API calls and avoids rate limits.
     """
     
+    @pytest.mark.real_api
     def test_01_post_dry_run(self):
         """Test dry run functionality without API calls"""
         # Test dry run - should not make API calls
@@ -75,7 +76,9 @@ class TestPostDeleteSequential:
         # Instead, verify that the message contains expected non-URL content
         assert 'ssky' in dry_result.message or 'Test post message' in dry_result.message
     
-    def test_02_real_post_quote_reply_delete_cycle(self):
+    @pytest.mark.real_api
+    @pytest.mark.write_api
+    def test_02_real_post_quote_reply_delete_cycle(self, require_test_account):
         """Real API test - post, quote, reply, and delete cycle (only real API test in this file)"""
         # Skip if no credentials available
         if not has_credentials():
@@ -175,6 +178,7 @@ class TestPostDeleteSequential:
             # Should return PostDataList
             assert isinstance(result, PostDataList), "Should return PostDataList"
     
+    @pytest.mark.needs_session
     def test_04_post_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available
@@ -222,6 +226,7 @@ class TestPostDeleteSequential:
         with pytest.raises(SskyError):
             delete("invalid://uri")
 
+    @pytest.mark.needs_session
     def test_05_post_facets_dry_run_hashtags(self):
         """Test dry run with hashtags extracts tags properly"""
         message = "Testing #hashtag extraction in #dryrun mode"
@@ -236,6 +241,7 @@ class TestPostDeleteSequential:
         assert len(dry_result.links) == 0
         assert len(dry_result.mentions) == 0
 
+    @pytest.mark.needs_session
     def test_06_post_facets_dry_run_urls(self):
         """Test dry run with URLs extracts links and cards properly"""
         message = "Check out https://www.example.com/ for more info"
@@ -261,6 +267,7 @@ class TestPostDeleteSequential:
             assert len(dry_result.tags) == 0
             assert len(dry_result.mentions) == 0
 
+    @pytest.mark.needs_session
     def test_07_post_facets_dry_run_mentions(self):
         """Test dry run with mentions extracts mentions properly"""
         # Mock the IdResolver to avoid actual network calls
@@ -282,6 +289,7 @@ class TestPostDeleteSequential:
             assert len(dry_result.tags) == 0
             assert len(dry_result.links) == 0
 
+    @pytest.mark.needs_session
     def test_08_post_facets_dry_run_all_together(self):
         """Test dry run with URLs, hashtags, and mentions all together"""
         # Mock dependencies
@@ -516,18 +524,21 @@ class TestPostNewOptions:
         mock_client.get_posts.return_value = posts_resp
         return mock_client
 
+    @pytest.mark.needs_session
     def test_dry_run_lang(self):
         result = post(message="Hello", lang=["ja", "en"], dry=True)
         assert isinstance(result, DryRunResult)
         assert result.langs == ["ja", "en"]
         assert "Languages: ja, en" in result.to_list()
 
+    @pytest.mark.needs_session
     def test_dry_run_image_alt(self):
         result = post(message="pic", image=["a.png", "b.png"], alt=["first"], dry=True)
         assert isinstance(result, DryRunResult)
         assert result.images[0]["alt_text"] == "first"
         assert result.images[1]["alt_text"] == ""
 
+    @pytest.mark.needs_session
     def test_dry_run_allow_reply_and_no_quote(self):
         result = post(message="locked", allow_reply=["following", "mentioned"], no_quote=True, dry=True)
         assert isinstance(result, DryRunResult)

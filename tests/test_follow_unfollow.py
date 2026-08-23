@@ -7,9 +7,9 @@ import time
 from ssky.profile_list import ProfileList
 from ssky.follow import follow
 from ssky.unfollow import unfollow
-from ssky.ssky_session import SskySession
+from ssky.ssky_session import SskySession, ssky_client
 from ssky.result import ErrorResult
-from tests.common import create_mock_ssky_session, has_credentials
+from tests.common import create_mock_ssky_session, has_credentials, read_test_config
 
 @pytest.fixture
 def mock_follow_environment():
@@ -54,30 +54,61 @@ class TestFollowUnfollowSequential:
     This reduces API calls and avoids rate limits.
     """
     
-    def test_01_real_follow_unfollow_by_handle(self):
-        """Real API test - follow and unfollow by handle (only real API test in this file)"""
-        # Skip if no credentials available
-        if not has_credentials():
-            pytest.skip("SSKY_USER environment variable not set")
-        
+    @pytest.mark.real_api
+    @pytest.mark.write_api
+    def test_01_real_follow_unfollow_by_handle(self, require_test_account):
+        """Real API test - follow and unfollow by handle (only real API test in this file)
+
+        Two constraints the target has to satisfy. The unfollow at the end is
+        unconditional, so the test account must not already follow the target — it
+        would delete a relationship this test did not create. And the target must be
+        an account under your control, because it receives a follow notification on
+        every run; it used to default to bsky.app.
+        """
+        target = read_test_config('SSKY_TEST_FOLLOW_TARGET')
+        if not target:
+            pytest.skip(
+                "SSKY_TEST_FOLLOW_TARGET is not set. Point it at an account you control; "
+                "this test really follows and then unfollows it."
+            )
+
         # This test uses real API calls - no mocking
         try:
-            handle = os.environ.get('SSKY_TEST_HANDLE', 'test.bsky.social')
-            
+            client = ssky_client()
+            before = client.get_profile(actor=target)
+            if before.viewer is not None and before.viewer.following is not None:
+                pytest.skip(
+                    f"The test account already follows {target}; the unfollow step would "
+                    f"destroy a relationship this test did not create."
+                )
+
             # Follow
-            follow_result = follow(handle)
+            follow_result = follow(target)
             assert isinstance(follow_result, ProfileList), "Follow should return ProfileList"
-            
+
             # Wait a bit before unfollowing
             time.sleep(5)
-            
+
             # Unfollow
-            unfollow_result = unfollow(handle)
+            unfollow_result = unfollow(target)
             assert isinstance(unfollow_result, ProfileList), "Unfollow should return ProfileList"
-            
+
+            # Graph records are eventually consistent, the same way post availability
+            # is: a read taken right after the unfollow can still show the record.
+            # Poll instead of asserting once, or this test is flaky by construction.
+            deadline = time.time() + 30
+            while True:
+                after = client.get_profile(actor=target)
+                if after.viewer is None or after.viewer.following is None:
+                    break
+                assert time.time() < deadline, \
+                    f"Follow record still present 30s after unfollow: {after.viewer.following}"
+                time.sleep(2)
+
         finally:
             SskySession.clear()
     
+    @pytest.mark.needs_session
     def test_02_follow_by_did_with_mock(self, mock_follow_environment):
         """Test follow by DID using mocked session"""
         mock_session, mock_client, mock_profile = mock_follow_environment
@@ -90,6 +121,7 @@ class TestFollowUnfollowSequential:
             
             assert isinstance(result, ProfileList), "Follow should return ProfileList"
     
+    @pytest.mark.needs_session
     def test_03_unfollow_by_did_with_mock(self, mock_follow_environment):
         """Test unfollow by DID using mocked session"""
         mock_session, mock_client, mock_profile = mock_follow_environment
@@ -113,6 +145,7 @@ class TestFollowUnfollowSequential:
             
             assert isinstance(result, ProfileList), "Unfollow should return ProfileList"
     
+    @pytest.mark.needs_session
     def test_04_unfollow_not_following_user(self, mock_follow_environment):
         """Test unfollow user that is not being followed"""
         mock_session, mock_client, mock_profile = mock_follow_environment
@@ -131,6 +164,7 @@ class TestFollowUnfollowSequential:
             with pytest.raises(NotFoundError):
                 unfollow(handle)
     
+    @pytest.mark.needs_session
     def test_05_follow_invalid_user(self, mock_follow_environment):
         """Test follow with invalid user"""
         mock_session, mock_client, mock_profile = mock_follow_environment
@@ -148,6 +182,7 @@ class TestFollowUnfollowSequential:
             with pytest.raises(AtProtocolSskyError):
                 follow(invalid_did)
     
+    @pytest.mark.needs_session
     def test_06_unfollow_invalid_user(self, mock_follow_environment):
         """Test unfollow with invalid user"""
         mock_session, mock_client, mock_profile = mock_follow_environment
@@ -165,6 +200,7 @@ class TestFollowUnfollowSequential:
             with pytest.raises(AtProtocolSskyError):
                 unfollow(invalid_did)
     
+    @pytest.mark.needs_session
     def test_07_follow_unfollow_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available for follow
@@ -191,6 +227,7 @@ class TestFollowUnfollowSequential:
         with pytest.raises(InvalidActorError):
             unfollow("")
     
+    @pytest.mark.needs_session
     def test_08_follow_unfollow_with_json_format(self, mock_follow_environment):
         """Test follow/unfollow with JSON format output"""
         mock_session, mock_client, mock_profile = mock_follow_environment

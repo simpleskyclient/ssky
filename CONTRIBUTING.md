@@ -81,18 +81,82 @@ For development using VS Code Dev Containers:
 
 2. Run the tests:
    ```bash
-   poetry run pytest --tb=short             # the whole suite
+   poetry run pytest --tb=short             # the default tier
    poetry run pytest tests/test_login.py -v # a single file
    ```
 
-Parts of the suite call the real Bluesky API. To skip those:
+### Test tiers
+
+The default run needs no credentials and no network, and it never touches a live
+account. Tests that do are marked and excluded unless you ask for them:
 
 ```bash
-SSKY_SKIP_REAL_API_TESTS=1 poetry run pytest
+poetry run pytest                                  # default: no network, no writes
+poetry run pytest -m 'real_api and not write_api'  # reads from the live API
+poetry run pytest -m write_api                     # creates and deletes real records
+poetry run pytest -m real_api                      # both
+poetry run pytest -m needs_session                 # incompletely mocked, see below
 ```
 
-Tests preserve your `~/.ssky` session file via `conftest.py`. Never delete it from
+The default tier runs with no credentials, no session file, and no `tests/.env` at all —
+115 tests in well under a second. An autouse fixture replaces the one function that talks
+to the auth endpoint, so a test that tries to authenticate fails with a clear message
+instead of silently reaching the network. If you hit that failure, your mocks are
+incomplete: patching `ssky_client` is often not enough, because commands also reach the
+session through `expand_actor()` and through `SskySession()` constructed directly in
+`profile_list.py`.
+
+`needs_session` marks 34 tests that read as mocked but still authenticate for real, for
+exactly that reason. It is a debt marker, not a statement of intent, and it is being
+burned down in #109; do not add new tests to it.
+
+`write_api` tests really post, follow, and repost. Selecting them is not enough to run
+them: they also require `SSKY_TEST_ACCOUNT_DID` in `tests/.env` to match the DID of the
+account you are logged in as, and they skip otherwise. Set it to a dedicated test
+account, never your own. The follow test additionally needs `SSKY_TEST_FOLLOW_TARGET`,
+which it really follows and then unfollows — point it at another account you control,
+because the target gets a notification on every run.
+
+`SSKY_SKIP_REAL_API_TESTS=1` still suppresses the whole real-API tier and will keep
+working for one release, but the markers are the mechanism now.
+
+### Running the write tier as the test account
+
+Which account the tests authenticate as is decided by the session file and the ambient
+environment, not by `tests/.env`: `login_internal()` tries `~/.ssky` first and only falls
+back to credentials, and `load_dotenv` does not override an `SSKY_USER` you already
+export. So putting the test account in `tests/.env` is not enough — the guard will refuse
+to run. Only `SSKY_TEST_ACCOUNT_DID` and `SSKY_TEST_FOLLOW_TARGET` are read out of that
+file directly, and they configure the tests rather than the login.
+
+Point `SSKY_CONFIG_PATH` at a separate session file so the test account gets its own:
+
+```bash
+SSKY_CONFIG_PATH=~/.ssky-test poetry run pytest -m write_api
+```
+
+It has to be set in the environment before pytest starts, because `SskySession` reads it
+once at import. The first run logs in with the credentials from `tests/.env` and persists
+the session there; later runs reuse it, which is what keeps repeated real logins from
+being rate-limited.
+
+Note that the test harness itself still hardcodes `~/.ssky` for its backup and restore
+(#108), so under `SSKY_CONFIG_PATH` it manages a file the tests are not using.
+
+Real logins are rate-limited by Bluesky, so the suite logs in once and reuses the
+session: `conftest.py` backs up and restores your `~/.ssky` file. Never delete it from
 production code.
+
+### What CI covers
+
+Nothing yet — there is no workflow running the tests, so a pull request gets no
+automated signal. Adding one, and gating releases on it, is tracked in #107; the default
+tier above is what it will run, and it now passes with no credentials at all. Until then,
+run the tests locally before opening a PR.
+
+Note what that tier does *not* cover: 25 further tests skip without credentials, and the
+`real_api`, `write_api`, and `needs_session` tiers are excluded outright. Anything in
+those has to be exercised locally before a release.
 
 ## Pull requests
 
