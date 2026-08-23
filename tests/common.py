@@ -10,7 +10,7 @@ from ssky.ssky_session import SskySession
 def setup(envs_to_delete=[], no_session_file=False, interval=0):
     if interval > 0:
         sleep(interval)
-    load_dotenv('tests/.env')
+    load_dotenv('tests/.env', override=True)
     for name in envs_to_delete:
         del os.environ[name]
     if no_session_file:
@@ -39,7 +39,7 @@ def restore_session_from_backup(backup_path):
 
 def setup_with_session_copy(master_session_path, envs_to_delete=[]):
     """Setup test environment with copied session file"""
-    load_dotenv('tests/.env')
+    load_dotenv('tests/.env', override=True)
     for name in envs_to_delete:
         if name in os.environ:
             del os.environ[name]
@@ -53,7 +53,7 @@ def setup_with_session_copy(master_session_path, envs_to_delete=[]):
 
 def has_credentials():
     """Check if SSKY_USER credentials are available"""
-    load_dotenv('tests/.env')
+    load_dotenv('tests/.env', override=True)
     return bool(os.environ.get('SSKY_USER'))
 
 def create_mock_atproto_client():
@@ -268,6 +268,6 @@ class BaseSequentialTest:
     def setup_class(cls):
         """Class setup - ensure session file and backup are available"""
         # Load environment variables first for all tests in this class
-        load_dotenv('tests/.env')
+        load_dotenv('tests/.env', override=True)
         MasterSessionManager.ensure_session_available()
     

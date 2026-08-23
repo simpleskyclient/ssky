@@ -25,7 +25,7 @@ def login_environment():
     """Fixture that sets up login test environment"""
     # Load environment variables
     from dotenv import load_dotenv
-    load_dotenv('tests/.env')
+    load_dotenv('tests/.env', override=True)
     
     # Clear any existing session state
     from ssky.ssky_session import SskySession

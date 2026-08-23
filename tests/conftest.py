@@ -126,7 +126,13 @@ def require_test_account():
     the session is logged in as, because a handle can be reassigned and a DID
     cannot. Without the variable, write tests never run.
     """
+    from dotenv import load_dotenv
     from tests.common import has_credentials
+
+    # Not all write tests inherit a class that has already loaded tests/.env, and
+    # the file is authoritative for tests, so load it here rather than depending on
+    # collection order or on whatever the ambient shell exports.
+    load_dotenv('tests/.env', override=True)
 
     expected_did = os.environ.get('SSKY_TEST_ACCOUNT_DID')
     if not expected_did:

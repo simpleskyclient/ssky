@@ -107,6 +107,27 @@ because the target gets a notification on every run.
 `SSKY_SKIP_REAL_API_TESTS=1` still suppresses the whole real-API tier and will keep
 working for one release, but the markers are the mechanism now.
 
+### Running the write tier as the test account
+
+Which account the tests authenticate as is decided by the session file, not by
+`tests/.env`: `login_internal()` tries `~/.ssky` first and only falls back to
+credentials. So putting the test account in `tests/.env` is not enough — the session
+file for your own account still wins, and the guard will refuse to run.
+
+Point `SSKY_CONFIG_PATH` at a separate session file so the test account gets its own:
+
+```bash
+SSKY_CONFIG_PATH=~/.ssky-test poetry run pytest -m write_api
+```
+
+It has to be set in the environment before pytest starts, because `SskySession` reads it
+once at import. The first run logs in with the credentials from `tests/.env` and persists
+the session there; later runs reuse it, which is what keeps repeated real logins from
+being rate-limited.
+
+Note that the test harness itself still hardcodes `~/.ssky` for its backup and restore
+(#108), so under `SSKY_CONFIG_PATH` it manages a file the tests are not using.
+
 Real logins are rate-limited by Bluesky, so the suite logs in once and reuses the
 session: `conftest.py` backs up and restores your `~/.ssky` file. Never delete it from
 production code.
