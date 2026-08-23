@@ -9,7 +9,7 @@ from ssky.follow import follow
 from ssky.unfollow import unfollow
 from ssky.ssky_session import SskySession, ssky_client
 from ssky.result import ErrorResult
-from tests.common import create_mock_ssky_session, has_credentials
+from tests.common import create_mock_ssky_session, has_credentials, read_test_config
 
 @pytest.fixture
 def mock_follow_environment():
@@ -65,7 +65,7 @@ class TestFollowUnfollowSequential:
         an account under your control, because it receives a follow notification on
         every run; it used to default to bsky.app.
         """
-        target = os.environ.get('SSKY_TEST_FOLLOW_TARGET')
+        target = read_test_config('SSKY_TEST_FOLLOW_TARGET')
         if not target:
             pytest.skip(
                 "SSKY_TEST_FOLLOW_TARGET is not set. Point it at an account you control; "

@@ -126,15 +126,14 @@ def require_test_account():
     the session is logged in as, because a handle can be reassigned and a DID
     cannot. Without the variable, write tests never run.
     """
-    from dotenv import load_dotenv
-    from tests.common import has_credentials
+    from tests.common import has_credentials, read_test_config
 
-    # Not all write tests inherit a class that has already loaded tests/.env, and
-    # the file is authoritative for tests, so load it here rather than depending on
-    # collection order or on whatever the ambient shell exports.
-    load_dotenv('tests/.env', override=True)
-
-    expected_did = os.environ.get('SSKY_TEST_ACCOUNT_DID')
+    # Read this one value out of tests/.env directly instead of loading the file over
+    # the environment. Making tests/.env win over the ambient SSKY_USER looks tidier,
+    # but combined with setup(no_session_file=True) deleting ~/.ssky it ends up
+    # persisting the test account's session into the developer's session file, which
+    # silently switches which account their CLI is logged in as (#108).
+    expected_did = read_test_config('SSKY_TEST_ACCOUNT_DID')
     if not expected_did:
         pytest.skip(
             "SSKY_TEST_ACCOUNT_DID is not set. Write tests mutate a live account, "

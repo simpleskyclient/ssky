@@ -122,10 +122,12 @@ working for one release, but the markers are the mechanism now.
 
 ### Running the write tier as the test account
 
-Which account the tests authenticate as is decided by the session file, not by
-`tests/.env`: `login_internal()` tries `~/.ssky` first and only falls back to
-credentials. So putting the test account in `tests/.env` is not enough — the session
-file for your own account still wins, and the guard will refuse to run.
+Which account the tests authenticate as is decided by the session file and the ambient
+environment, not by `tests/.env`: `login_internal()` tries `~/.ssky` first and only falls
+back to credentials, and `load_dotenv` does not override an `SSKY_USER` you already
+export. So putting the test account in `tests/.env` is not enough — the guard will refuse
+to run. Only `SSKY_TEST_ACCOUNT_DID` and `SSKY_TEST_FOLLOW_TARGET` are read out of that
+file directly, and they configure the tests rather than the login.
 
 Point `SSKY_CONFIG_PATH` at a separate session file so the test account gets its own:
 

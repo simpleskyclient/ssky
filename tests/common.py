@@ -2,7 +2,7 @@ import os
 import shutil
 import tempfile
 from time import sleep
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from unittest.mock import Mock, patch
 
 from ssky.ssky_session import SskySession
@@ -10,7 +10,7 @@ from ssky.ssky_session import SskySession
 def setup(envs_to_delete=[], no_session_file=False, interval=0):
     if interval > 0:
         sleep(interval)
-    load_dotenv('tests/.env', override=True)
+    load_dotenv('tests/.env')
     for name in envs_to_delete:
         del os.environ[name]
     if no_session_file:
@@ -39,7 +39,7 @@ def restore_session_from_backup(backup_path):
 
 def setup_with_session_copy(master_session_path, envs_to_delete=[]):
     """Setup test environment with copied session file"""
-    load_dotenv('tests/.env', override=True)
+    load_dotenv('tests/.env')
     for name in envs_to_delete:
         if name in os.environ:
             del os.environ[name]
@@ -51,9 +51,21 @@ def setup_with_session_copy(master_session_path, envs_to_delete=[]):
 
 
 
+def read_test_config(name, default=None):
+    """Read a test-only setting, preferring the environment over tests/.env.
+
+    Deliberately does not load tests/.env over the environment: see the note in
+    conftest.require_test_account. Values read here configure the tests themselves,
+    never which account ssky authenticates as.
+    """
+    value = os.environ.get(name)
+    if value:
+        return value
+    return dotenv_values('tests/.env').get(name) or default
+
 def has_credentials():
     """Check if SSKY_USER credentials are available"""
-    load_dotenv('tests/.env', override=True)
+    load_dotenv('tests/.env')
     return bool(os.environ.get('SSKY_USER'))
 
 def create_mock_atproto_client():
@@ -268,6 +280,6 @@ class BaseSequentialTest:
     def setup_class(cls):
         """Class setup - ensure session file and backup are available"""
         # Load environment variables first for all tests in this class
-        load_dotenv('tests/.env', override=True)
+        load_dotenv('tests/.env')
         MasterSessionManager.ensure_session_available()
     
