@@ -40,6 +40,7 @@ class TestUserSequential:
     This reduces API calls and avoids rate limits.
     """
     
+    @pytest.mark.real_api
     def test_01_real_user_search(self):
         """Real API test - basic user search functionality (only real API test in this file)"""
         # Skip if no credentials available

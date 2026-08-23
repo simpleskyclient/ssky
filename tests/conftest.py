@@ -101,3 +101,50 @@ def ssky_login_session_only():
     
     yield _setup_session_only
     SskySession.clear() 
+
+def pytest_collection_modifyitems(config, items):
+    """Honor SSKY_SKIP_REAL_API_TESTS for the whole real_api tier.
+
+    Kept for one release so existing invocations keep working. The markers are the
+    real mechanism: a default run already excludes real_api via addopts, so this
+    only matters when someone selects the tier explicitly and still sets the flag.
+    """
+    if not os.environ.get('SSKY_SKIP_REAL_API_TESTS'):
+        return
+    skip_real = pytest.mark.skip(reason="Real API tests disabled by SSKY_SKIP_REAL_API_TESTS")
+    for item in items:
+        if item.get_closest_marker('real_api') or item.get_closest_marker('write_api'):
+            item.add_marker(skip_real)
+
+
+@pytest.fixture
+def require_test_account():
+    """Refuse to mutate any account other than the declared test account.
+
+    Marker selection decides whether a write test is *collected*; this decides
+    whether it may actually run. SSKY_TEST_ACCOUNT_DID is compared against the DID
+    the session is logged in as, because a handle can be reassigned and a DID
+    cannot. Without the variable, write tests never run.
+    """
+    from tests.common import has_credentials
+
+    expected_did = os.environ.get('SSKY_TEST_ACCOUNT_DID')
+    if not expected_did:
+        pytest.skip(
+            "SSKY_TEST_ACCOUNT_DID is not set. Write tests mutate a live account, "
+            "so they only run against the account declared there."
+        )
+    if not has_credentials():
+        pytest.skip("SSKY_USER environment variable not set")
+
+    SskySession.clear()
+    profile = SskySession().profile()
+    actual_did = getattr(profile, 'did', None) if profile is not None else None
+    if actual_did != expected_did:
+        SskySession.clear()
+        pytest.skip(
+            f"Logged in as {actual_did or 'an unauthenticated session'}, but write tests "
+            f"are restricted to {expected_did}. Refusing to mutate this account."
+        )
+    yield actual_did
+    SskySession.clear()

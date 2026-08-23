@@ -69,6 +69,7 @@ def mock_get_client():
 class TestGetSequential:
     """Sequential tests for get functionality using mocked SskySession"""
     
+    @pytest.mark.real_api
     def test_01_real_get_timeline(self):
         """Real API test - get timeline (only real API test in this file)"""
         # Skip if no credentials available

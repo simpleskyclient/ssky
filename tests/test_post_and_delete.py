@@ -75,7 +75,9 @@ class TestPostDeleteSequential:
         # Instead, verify that the message contains expected non-URL content
         assert 'ssky' in dry_result.message or 'Test post message' in dry_result.message
     
-    def test_02_real_post_quote_reply_delete_cycle(self):
+    @pytest.mark.real_api
+    @pytest.mark.write_api
+    def test_02_real_post_quote_reply_delete_cycle(self, require_test_account):
         """Real API test - post, quote, reply, and delete cycle (only real API test in this file)"""
         # Skip if no credentials available
         if not has_credentials():

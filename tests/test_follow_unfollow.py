@@ -7,7 +7,7 @@ import time
 from ssky.profile_list import ProfileList
 from ssky.follow import follow
 from ssky.unfollow import unfollow
-from ssky.ssky_session import SskySession
+from ssky.ssky_session import SskySession, ssky_client
 from ssky.result import ErrorResult
 from tests.common import create_mock_ssky_session, has_credentials
 
@@ -54,27 +54,49 @@ class TestFollowUnfollowSequential:
     This reduces API calls and avoids rate limits.
     """
     
-    def test_01_real_follow_unfollow_by_handle(self):
-        """Real API test - follow and unfollow by handle (only real API test in this file)"""
-        # Skip if no credentials available
-        if not has_credentials():
-            pytest.skip("SSKY_USER environment variable not set")
-        
+    @pytest.mark.real_api
+    @pytest.mark.write_api
+    def test_01_real_follow_unfollow_by_handle(self, require_test_account):
+        """Real API test - follow and unfollow by handle (only real API test in this file)
+
+        Two constraints the target has to satisfy. The unfollow at the end is
+        unconditional, so the test account must not already follow the target — it
+        would delete a relationship this test did not create. And the target must be
+        an account under your control, because it receives a follow notification on
+        every run; it used to default to bsky.app.
+        """
+        target = os.environ.get('SSKY_TEST_FOLLOW_TARGET')
+        if not target:
+            pytest.skip(
+                "SSKY_TEST_FOLLOW_TARGET is not set. Point it at an account you control; "
+                "this test really follows and then unfollows it."
+            )
+
         # This test uses real API calls - no mocking
         try:
-            handle = os.environ.get('SSKY_TEST_HANDLE', 'test.bsky.social')
-            
+            client = ssky_client()
+            before = client.get_profile(actor=target)
+            if before.viewer is not None and before.viewer.following is not None:
+                pytest.skip(
+                    f"The test account already follows {target}; the unfollow step would "
+                    f"destroy a relationship this test did not create."
+                )
+
             # Follow
-            follow_result = follow(handle)
+            follow_result = follow(target)
             assert isinstance(follow_result, ProfileList), "Follow should return ProfileList"
-            
+
             # Wait a bit before unfollowing
             time.sleep(5)
-            
+
             # Unfollow
-            unfollow_result = unfollow(handle)
+            unfollow_result = unfollow(target)
             assert isinstance(unfollow_result, ProfileList), "Unfollow should return ProfileList"
-            
+
+            after = client.get_profile(actor=target)
+            assert after.viewer is None or after.viewer.following is None, \
+                "Follow record should be gone after unfollow"
+
         finally:
             SskySession.clear()
     

@@ -77,7 +77,9 @@ class TestRepostUnrepostSequential:
     This reduces API calls and avoids rate limits.
     """
     
-    def test_01_real_repost_unrepost_by_uri(self):
+    @pytest.mark.real_api
+    @pytest.mark.write_api
+    def test_01_real_repost_unrepost_by_uri(self, require_test_account):
         """Real API test - repost and unrepost by URI (only real API test in this file)"""
         # Skip if no credentials available
         if not has_credentials():
