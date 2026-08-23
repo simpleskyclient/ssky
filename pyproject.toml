@@ -1,6 +1,6 @@
 [project]
 name = "ssky"
-version = "1.0.2"
+version = "1.1.0"
 description = "Simple bluesky client"
 authors = [
     {name = "SimpleSkyClient Project", email = "simpleskypclient@gmail.com"}
