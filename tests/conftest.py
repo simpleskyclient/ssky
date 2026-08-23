@@ -154,3 +154,28 @@ def require_test_account():
         )
     yield actual_did
     SskySession.clear()
+
+
+@pytest.fixture(autouse=True)
+def block_real_login(request, monkeypatch):
+    """Fail loudly instead of authenticating, for everything outside the real_api tier.
+
+    The default tier promises no network access, and asserting that once is not enough
+    to keep it true. Commands reach the session through several doors — ssky_client(),
+    expand_actor(), and SskySession() constructed directly — so a test that patches only
+    the door it knows about still authenticates for real. Blocking the one function that
+    actually talks to the API turns that into a visible failure instead of a silent
+    network call, which is how five such tests went unnoticed.
+    """
+    if request.node.get_closest_marker('real_api') or \
+            request.node.get_closest_marker('needs_session'):
+        return
+
+    def _blocked(cls, handle=None, password=None, session_string=None):
+        raise AssertionError(
+            "This test authenticated against the live Bluesky API. Complete its mocks "
+            "(ssky_client alone is often not enough - see expand_actor and "
+            "profile_list.SskySession) or mark it @pytest.mark.real_api."
+        )
+
+    monkeypatch.setattr(SskySession, 'at_login_internal', classmethod(_blocked))

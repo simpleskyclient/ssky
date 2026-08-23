@@ -41,6 +41,7 @@ testpaths = ["tests"]
 markers = [
     "real_api: hits the live Bluesky API",
     "write_api: creates or deletes records on the live account; always also real_api",
+    "needs_session: incompletely mocked, still authenticates for real; see #109",
 ]
 # Real API tests are opt-in. A bare `pytest` must not touch the network or the
 # live account, even when credentials are present.
@@ -50,7 +51,7 @@ markers = [
 # Selecting a write test is not by itself enough to run it: the require_test_account
 # fixture still refuses to mutate an account other than the declared test one.
 # See CONTRIBUTING.md.
-addopts = "-m 'not real_api'"
+addopts = "-m 'not real_api and not needs_session'"
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]

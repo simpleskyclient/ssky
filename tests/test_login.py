@@ -193,6 +193,7 @@ class TestLoginSequential(BaseSequentialTest):
             with pytest.raises(ProfileUnavailableAfterLoginError):
                 login(credentials="test:test")
     
+    @pytest.mark.real_api
     def test_06_login_no_credentials_available(self, login_environment):
         """Test login behavior when no credentials are available but valid session file exists"""
 
@@ -221,6 +222,7 @@ class TestLoginSequential(BaseSequentialTest):
             if original_user:
                 os.environ['SSKY_USER'] = original_user
     
+    @pytest.mark.real_api
     def test_07_login_no_credentials_no_session_file(self, login_environment):
         """Test login behavior when no credentials and no session file are available"""
 

@@ -188,6 +188,7 @@ class TestRepostUnrepostSequential:
             with pytest.raises(NotFoundError):
                 unrepost(invalid_uri)
     
+    @pytest.mark.needs_session
     def test_07_repost_unrepost_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available for repost

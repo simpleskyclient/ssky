@@ -86,6 +86,7 @@ class TestSearchSequential:
         finally:
             SskySession.clear()
     
+    @pytest.mark.needs_session
     def test_02_search_with_limit(self, mock_search_environment):
         """Test search with limit using mocked session"""
         mock_session, mock_client, mock_profile = mock_search_environment
@@ -136,6 +137,7 @@ class TestSearchSequential:
             assert isinstance(result, PostDataList), "Search should return PostDataList"
             assert len(result) == limit, f"Should return exactly {limit} results"
     
+    @pytest.mark.needs_session
     def test_03_search_with_no_results(self, mock_search_environment):
         """Test search with query that returns no results"""
         mock_session, mock_client, mock_profile = mock_search_environment
@@ -154,6 +156,7 @@ class TestSearchSequential:
             assert isinstance(result, PostDataList), "Search should return PostDataList even with no results"
             assert len(result) == 0, "Should return empty results"
     
+    @pytest.mark.needs_session
     def test_04_search_with_actor_handle(self, mock_search_environment):
         """Test search with actor handle filter"""
         mock_session, mock_client, mock_profile = mock_search_environment
@@ -167,6 +170,7 @@ class TestSearchSequential:
             
             assert isinstance(result, PostDataList), "Search should return PostDataList"
     
+    @pytest.mark.needs_session
     def test_05_search_with_actor_did(self, mock_search_environment):
         """Test search with actor DID filter"""
         mock_session, mock_client, mock_profile = mock_search_environment
@@ -180,6 +184,7 @@ class TestSearchSequential:
             
             assert isinstance(result, PostDataList), "Search should return PostDataList"
     
+    @pytest.mark.needs_session
     def test_06_search_with_time_period(self, mock_search_environment):
         """Test search with time period filters"""
         mock_session, mock_client, mock_profile = mock_search_environment
@@ -194,6 +199,7 @@ class TestSearchSequential:
             
             assert isinstance(result, PostDataList), "Search should return PostDataList"
     
+    @pytest.mark.needs_session
     def test_07_search_error_scenarios(self):
         """Test error handling scenarios"""
         # Test: No session available
@@ -209,6 +215,7 @@ class TestSearchSequential:
         with pytest.raises(AtProtocolSskyError):
             search("")
     
+    @pytest.mark.needs_session
     def test_08_search_with_json_format(self, mock_search_environment):
         """Test search with JSON format output"""
         mock_session, mock_client, mock_profile = mock_search_environment
@@ -221,6 +228,7 @@ class TestSearchSequential:
             
             assert isinstance(result, PostDataList), "Search should return PostDataList with JSON format"
 
+    @pytest.mark.needs_session
     def test_09_search_message_verb_is_retrieved(self, mock_search_client):
         """Test search reports Retrieved, not Posted (#93)"""
         with patch('ssky.search.ssky_client') as mock_ssky_client:

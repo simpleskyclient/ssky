@@ -95,7 +95,20 @@ poetry run pytest                                  # default: no network, no wri
 poetry run pytest -m 'real_api and not write_api'  # reads from the live API
 poetry run pytest -m write_api                     # creates and deletes real records
 poetry run pytest -m real_api                      # both
+poetry run pytest -m needs_session                 # incompletely mocked, see below
 ```
+
+The default tier runs with no credentials, no session file, and no `tests/.env` at all —
+115 tests in well under a second. An autouse fixture replaces the one function that talks
+to the auth endpoint, so a test that tries to authenticate fails with a clear message
+instead of silently reaching the network. If you hit that failure, your mocks are
+incomplete: patching `ssky_client` is often not enough, because commands also reach the
+session through `expand_actor()` and through `SskySession()` constructed directly in
+`profile_list.py`.
+
+`needs_session` marks 34 tests that read as mocked but still authenticate for real, for
+exactly that reason. It is a debt marker, not a statement of intent, and it is being
+burned down in #109; do not add new tests to it.
 
 `write_api` tests really post, follow, and repost. Selecting them is not enough to run
 them: they also require `SSKY_TEST_ACCOUNT_DID` in `tests/.env` to match the DID of the
@@ -136,7 +149,12 @@ production code.
 
 Nothing yet — there is no workflow running the tests, so a pull request gets no
 automated signal. Adding one, and gating releases on it, is tracked in #107; the default
-tier above is what it will run. Until then, run the tests locally before opening a PR.
+tier above is what it will run, and it now passes with no credentials at all. Until then,
+run the tests locally before opening a PR.
+
+Note what that tier does *not* cover: 25 further tests skip without credentials, and the
+`real_api`, `write_api`, and `needs_session` tiers are excluded outright. Anything in
+those has to be exercised locally before a release.
 
 ## Pull requests
 

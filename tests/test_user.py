@@ -99,6 +99,7 @@ class TestUserSequential:
             assert isinstance(result, ProfileList), "User search should return ProfileList even with no results"
             assert len(result) == 0, "Should return empty results"
     
+    @pytest.mark.needs_session
     def test_04_user_search_error_scenarios(self):
         """Test error handling scenarios"""
         # Test 1: No session available
