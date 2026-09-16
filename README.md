@@ -238,6 +238,12 @@ ssky search "keyword" --author myself
 
 # Save your timeline to files
 ssky get --output ./timeline
+
+# `get` has no time filter, since the AT Protocol feed APIs it uses
+# (getAuthorFeed/getTimeline) don't support one. `search` does, so use it
+# for time-bounded lookups instead (note: search doesn't guarantee returning
+# every post from an account, and it excludes reposts).
+ssky search "*" --author myself --since 2026-09-01
 ```
 
 ## 🤖 IDE Integration
